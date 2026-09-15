@@ -1,0 +1,30 @@
+.root {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  color: var(--color-surface);
+  background: var(--color-text);
+}
+
+.name {
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-lg);
+}
+
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.link:hover,
+.link:focus-visible {
+  text-decoration: underline;
+}

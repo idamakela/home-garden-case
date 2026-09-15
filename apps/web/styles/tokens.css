@@ -1,0 +1,12 @@
+@layer tokens {
+  :root {
+    --color-green-700: oklch(40% 0.08 150);
+    --color-green-100: oklch(96% 0.02 150);
+    --color-text: var(--color-green-700);
+    --color-surface: var(--color-green-100);
+    --space-8: 0.5rem;
+    --space-16: 1rem;
+    --space-md: var(--space-8);
+    --space-lg: var(--space-16);
+  }
+}

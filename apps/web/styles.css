@@ -1,1 +1,5 @@
-/* You can add global styles to this file, and also import other style files */
+@layer reset, tokens, base, primitives;
+
+@import './styles/tokens.css';
+@import './styles/reset.css';
+@import './styles/base.css';

@@ -29,6 +29,8 @@
     "src/**/*.test.jsx",
     "src/**/*.spec.jsx",
     "src/**/*.d.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
     "tests/**/*.test.ts",
     "tests/**/*.spec.ts",
     "tests/**/*.test.tsx",
@@ -37,7 +39,8 @@
     "tests/**/*.spec.js",
     "tests/**/*.test.jsx",
     "tests/**/*.spec.jsx",
-    "tests/**/*.d.ts"
+    "tests/**/*.d.ts",
+    "react-router.config.ts"
   ],
   "references": [
     {

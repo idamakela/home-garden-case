@@ -1,0 +1,8 @@
+.root {
+  composes: stack from '../../../../styles/primitives.module.css';
+}
+
+.main {
+  composes: stack from '../../../../styles/primitives.module.css';
+  padding: var(--space-lg);
+}

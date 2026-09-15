@@ -13,6 +13,7 @@ export default [
       '**/build',
       '**/.react-router',
       '**/test-output',
+      '**/out-tsc',
     ],
   },
   {
