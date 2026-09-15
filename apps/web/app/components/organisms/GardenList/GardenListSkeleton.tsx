@@ -7,7 +7,6 @@ const PLACEHOLDER_COLUMNS = [0, 1, 2, 3] as const;
 export function GardenListSkeleton() {
   return (
     <section className={styles.root} aria-busy="true" aria-label="Loading gardens">
-      <Skeleton height={32} width="30%" />
       <Table.ScrollContainer minWidth={500}>
         <Table withTableBorder tabularNums>
           <Table.Thead>

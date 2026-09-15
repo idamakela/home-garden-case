@@ -1,5 +1,38 @@
 import { queryOptions } from '@tanstack/react-query';
+import { z } from 'zod/v4';
 import { api } from '../lib/api';
+
+export const createGardenSchema = z
+  .object({
+    gardenName: z.string().min(1, 'Garden name is required').trim(),
+    totalSurfaceArea: z.number().nonnegative('Total surface area must be a non-negative number'),
+    locationDescription: z.string().nullable().optional(),
+    latitude: z
+      .number()
+      .min(-90, 'Latitude must be between -90 and 90')
+      .max(90, 'Latitude must be between -90 and 90')
+      .nullable()
+      .optional(),
+    longitude: z
+      .number()
+      .min(-180, 'Longitude must be between -180 and 180')
+      .max(180, 'Longitude must be between -180 and 180')
+      .nullable()
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      const hasLat = data.latitude !== null && data.latitude !== undefined;
+      const hasLng = data.longitude !== null && data.longitude !== undefined;
+      return hasLat === hasLng;
+    },
+    {
+      message: 'Both latitude and longitude must be provided together',
+    },
+  );
+
+export type CreateGarden = z.infer<typeof createGardenSchema>;
+export type UpdateGarden = CreateGarden;
 
 export type Garden = {
   gardenId: number;
@@ -11,16 +44,6 @@ export type Garden = {
   createdAt: string;
   updatedAt: string;
 };
-
-export type CreateGarden = {
-  gardenName: string;
-  totalSurfaceArea: number;
-  locationDescription?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-};
-
-export type UpdateGarden = CreateGarden;
 
 export const gardenKeys = {
   all: ['gardens'] as const,

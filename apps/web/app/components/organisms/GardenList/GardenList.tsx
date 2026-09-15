@@ -1,9 +1,17 @@
-import { Table, Text, Title } from '@mantine/core';
-import type { Garden } from '../../../queries/gardens';
+import { Table, Text } from '@mantine/core';
 import styles from './GardenList.module.css';
 
+export type GardenListItem = {
+  id: string;
+  gardenName: string;
+  totalSurfaceArea: number;
+  latitude?: number | null;
+  longitude?: number | null;
+  pending?: boolean;
+};
+
 type GardenListProps = {
-  gardens: Garden[];
+  gardens: GardenListItem[];
 };
 
 function formatOptionalNumber(value: number | null | undefined) {
@@ -13,11 +21,8 @@ function formatOptionalNumber(value: number | null | undefined) {
 export function GardenList({ gardens }: GardenListProps) {
   return (
     <section className={styles.root}>
-      <Title order={1} className={styles.title}>
-        Gardens
-      </Title>
       {gardens.length === 0 ? (
-        <Text className={styles.empty}>No gardens yet.</Text>
+        <Text className={styles.empty}>No gardens yet. Add one to get started.</Text>
       ) : (
         <Table.ScrollContainer minWidth={500}>
           <Table withTableBorder highlightOnHover tabularNums>
@@ -31,7 +36,11 @@ export function GardenList({ gardens }: GardenListProps) {
             </Table.Thead>
             <Table.Tbody>
               {gardens.map((garden) => (
-                <Table.Tr key={garden.gardenId}>
+                <Table.Tr
+                  key={garden.id}
+                  className={garden.pending ? styles.pending : undefined}
+                  aria-busy={garden.pending || undefined}
+                >
                   <Table.Td>{garden.gardenName}</Table.Td>
                   <Table.Td>{garden.totalSurfaceArea}</Table.Td>
                   <Table.Td>{formatOptionalNumber(garden.latitude)}</Table.Td>

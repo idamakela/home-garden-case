@@ -1,39 +1,90 @@
-import { useQuery } from '@tanstack/react-query';
+import { Button, Notification, UnstyledButton } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { AddGardenModal } from '../components/molecules/AddGardenModal/AddGardenModal';
 import { ErrorAlert } from '../components/molecules/ErrorAlert/ErrorAlert';
+import { SectionHeader } from '../components/molecules/SectionHeader/SectionHeader';
 import { GardenList } from '../components/organisms/GardenList/GardenList';
 import { GardenListSkeleton } from '../components/organisms/GardenList/GardenListSkeleton';
 import { AppShell } from '../components/templates/AppShell/AppShell';
 import { ApiError } from '../lib/api';
-import { gardensQuery } from '../queries/gardens';
+import {
+  gardenKeys,
+  gardensQuery,
+  postGarden,
+  type CreateGarden,
+  type Garden,
+} from '../queries/gardens';
+
+type PendingAddition = {
+  clientId: string;
+  body: CreateGarden;
+};
 
 function gardensLoadCopy(error: unknown): { title: string; message: string } {
   const status = error instanceof ApiError ? error.status : undefined;
 
   if (status === 404) {
     return {
-      title: 'Gardens not found',
-      message: 'Nothing is here.',
+      title: "We couldn't find gardens",
+      message: 'They may have been moved or deleted.',
     };
   }
 
   if (status === 409) {
     return {
-      title: 'Could not load gardens',
-      message: 'This change conflicts with current data.',
+      title: "Couldn't load gardens",
+      message: 'The list changed. Try again.',
     };
   }
 
   if (status != null && status >= 500) {
     return {
-      title: 'Could not load gardens',
-      message: 'The service is unavailable.',
+      title: "Couldn't load gardens",
+      message: 'The service is temporarily unavailable. Try again.',
     };
   }
 
   return {
-    title: 'Could not load gardens',
-    message: 'Something went wrong.',
+    title: "Couldn't load gardens",
+    message: 'Please try again.',
   };
+}
+
+function gardensCreateCopy(error: unknown): { title: string; message: string } {
+  const status = error instanceof ApiError ? error.status : undefined;
+
+  if (status === 400) {
+    return {
+      title: "Couldn't add this garden",
+      message: 'Check the details and try again.',
+    };
+  }
+
+  if (status === 409) {
+    return {
+      title: "Couldn't add this garden",
+      message: 'This conflicts with current data. Try again.',
+    };
+  }
+
+  if (status != null && status >= 500) {
+    return {
+      title: "Couldn't add this garden",
+      message: 'The service is temporarily unavailable. Try again.',
+    };
+  }
+
+  return {
+    title: "Couldn't add this garden",
+    message: 'Please try again.',
+  };
+}
+
+function dropPending(pendingAdditions: PendingAddition[], clientId: string) {
+  return pendingAdditions.filter((item) => item.clientId !== clientId);
 }
 
 export default function GardensPage() {
@@ -45,19 +96,111 @@ export default function GardensPage() {
 }
 
 function GardensPanel() {
+  const queryClient = useQueryClient();
+  const [opened, { open, close }] = useDisclosure(false);
+  const [pendingAdditions, setPendingAdditions] = useState<PendingAddition[]>([]);
+  const [restoreValues, setRestoreValues] = useState<CreateGarden | null>(null);
   const { data, isPending, isError, error, refetch } = useQuery(gardensQuery());
+  const createGarden = useMutation({
+    mutationFn: ({ body }: PendingAddition) => postGarden(body),
+    onSuccess: (garden, { clientId }) => {
+      setPendingAdditions((current) => dropPending(current, clientId));
+      queryClient.setQueryData<Garden[]>(gardenKeys.list(), (current) =>
+        current ? [...current, garden] : [garden],
+      );
+    },
+    onError: (mutationError, { clientId, body }) => {
+      setPendingAdditions((current) => dropPending(current, clientId));
+      const copy = gardensCreateCopy(mutationError);
+      const notificationId = crypto.randomUUID();
+
+      notifications.show({
+        id: notificationId,
+        autoClose: false,
+        color: 'red',
+        title: copy.title,
+        message: copy.message,
+        renderNotification: () => (
+          <UnstyledButton
+            type="button"
+            display="block"
+            w="100%"
+            onClick={() => {
+              notifications.hide(notificationId);
+              setRestoreValues(body);
+              open();
+            }}
+          >
+            <Notification color="red" title={copy.title} withCloseButton={false} withBorder>
+              {copy.message}
+            </Notification>
+          </UnstyledButton>
+        ),
+      });
+    },
+  });
+
+  function openAddGarden() {
+    setRestoreValues(null);
+    open();
+  }
+
+  function closeModal() {
+    close();
+    setRestoreValues(null);
+  }
+
+  function submitGarden(body: CreateGarden) {
+    const clientId = crypto.randomUUID();
+    setPendingAdditions((current) => [...current, { clientId, body }]);
+    setRestoreValues(null);
+    close();
+    createGarden.mutate({ clientId, body });
+  }
+
+  const gardenRows = [
+    ...(data ?? []).map((garden) => ({
+      id: String(garden.gardenId),
+      gardenName: garden.gardenName,
+      totalSurfaceArea: garden.totalSurfaceArea,
+      latitude: garden.latitude,
+      longitude: garden.longitude,
+    })),
+    ...pendingAdditions.map((pending) => ({
+      id: `pending-${pending.clientId}`,
+      gardenName: pending.body.gardenName,
+      totalSurfaceArea: pending.body.totalSurfaceArea,
+      latitude: pending.body.latitude,
+      longitude: pending.body.longitude,
+      pending: true,
+    })),
+  ];
+
+  let content;
 
   if (isPending) {
-    return <GardenListSkeleton />;
-  }
-
-  if (isError) {
+    content = <GardenListSkeleton />;
+  } else if (isError) {
     const copy = gardensLoadCopy(error);
-
-    return (
-      <ErrorAlert error={copy.title} details={copy.message} onRetry={() => refetch()} />
-    );
+    content = <ErrorAlert error={copy.title} details={copy.message} onRetry={() => refetch()} />;
+  } else {
+    content = <GardenList gardens={gardenRows} />;
   }
 
-  return <GardenList gardens={data} />;
+  return (
+    <>
+      <SectionHeader title="Gardens">
+        <Button type="button" onClick={openAddGarden}>
+          Add garden
+        </Button>
+      </SectionHeader>
+      {content}
+      <AddGardenModal
+        opened={opened}
+        onClose={closeModal}
+        onSubmit={submitGarden}
+        initialValues={restoreValues}
+      />
+    </>
+  );
 }

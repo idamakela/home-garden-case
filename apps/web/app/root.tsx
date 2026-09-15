@@ -1,6 +1,8 @@
 import '@mantine/core/styles.css';
+import '@mantine/notifications/styles.css';
 
 import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState } from 'react';
@@ -31,6 +33,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           defaultColorScheme="light"
           cssVariablesResolver={cssVariablesResolver}
         >
+          <Notifications />
           {children}
         </MantineProvider>
         <ScrollRestoration />

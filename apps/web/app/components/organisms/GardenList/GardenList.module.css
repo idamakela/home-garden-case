@@ -3,12 +3,11 @@
   margin: 0;
 }
 
-.title {
+.empty {
   margin: 0;
   color: var(--color-text);
 }
 
-.empty {
-  margin: 0;
-  color: var(--color-text);
+.pending {
+  opacity: 0.6;
 }
