@@ -1,6 +1,5 @@
-import { Alert } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '../components/atoms/Button/Button';
+import { ErrorAlert } from '../components/molecules/ErrorAlert/ErrorAlert';
 import { GardenList } from '../components/organisms/GardenList/GardenList';
 import { GardenListSkeleton } from '../components/organisms/GardenList/GardenListSkeleton';
 import { AppShell } from '../components/templates/AppShell/AppShell';
@@ -13,27 +12,27 @@ function gardensLoadCopy(error: unknown): { title: string; message: string } {
   if (status === 404) {
     return {
       title: 'Gardens not found',
-      message: 'Nothing is here. Try again.',
+      message: 'Nothing is here.',
     };
   }
 
   if (status === 409) {
     return {
       title: 'Could not load gardens',
-      message: 'This change conflicts with current data. Try again.',
+      message: 'This change conflicts with current data.',
     };
   }
 
   if (status != null && status >= 500) {
     return {
       title: 'Could not load gardens',
-      message: 'The service is unavailable. Try again.',
+      message: 'The service is unavailable.',
     };
   }
 
   return {
     title: 'Could not load gardens',
-    message: 'Something went wrong. Try again.',
+    message: 'Something went wrong.',
   };
 }
 
@@ -56,12 +55,7 @@ function GardensPanel() {
     const copy = gardensLoadCopy(error);
 
     return (
-      <Alert title={copy.title} color="red">
-        {copy.message}
-        <Button variant="primary" onClick={() => refetch()}>
-          Retry
-        </Button>
-      </Alert>
+      <ErrorAlert error={copy.title} details={copy.message} onRetry={() => refetch()} />
     );
   }
 
