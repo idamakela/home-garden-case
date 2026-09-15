@@ -1,0 +1,36 @@
+---
+description: >-
+  Probe localhost:3000 and :4200 before starting or browsing. Reuse a healthy
+  server; never start extra Nx dev processes that hop ports.
+alwaysApply: true
+---
+
+# Dev server ports
+
+Canonical URLs: API `http://localhost:3000`, web `http://localhost:4200`. CORS allows only `http://localhost:4200`.
+
+Before any `npx nx dev api`, `npx nx dev web`, or browser verification:
+
+1. Check the Cursor terminals folder for an already-running `nx dev api` / `nx dev web`
+2. Probe the canonical URLs, for example:
+
+```sh
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/docs/json
+curl -s -o /dev/null -w "%{http_code}" http://localhost:4200
+```
+
+If that port already serves this app, **use it**. Do not start another process. Start only the missing service.
+
+Browser verification always opens `http://localhost:4200` (plus path). Never follow Vite to 4201+. If 3000 or 4200 is occupied by something that is not this app, stop and tell the user. Do not hop ports.
+
+## Agent do / don't
+
+**Do**
+
+- Reuse a healthy `http://localhost:4200` and `http://localhost:3000`
+- Start `npx nx dev web` only when 4200 is down; `npx nx dev api` only when 3000 is down
+
+**Don't**
+
+- Run a second `nx dev web` that binds 4205 while 4200 is already listening
+- Open `http://localhost:4205` (or any non-canonical port) for verification
