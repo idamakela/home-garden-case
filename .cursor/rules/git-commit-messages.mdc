@@ -1,0 +1,45 @@
+---
+description: Conventional commit prefixes. Use when creating a git commit.
+alwaysApply: true
+---
+
+# Git commit messages
+
+Every commit subject must start with one of these prefixes. Do not invent others.
+
+| Prefix | Use for |
+| --- | --- |
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `refactor:` | Code refactoring |
+| `docs:` | Documentation |
+| `style:` | Formatting, missing semicolons, etc. |
+| `test:` | Adding tests |
+| `chore:` | Maintenance |
+
+Subject after the prefix: concise, imperative, lowercase. Keep the existing commit protocol: HEREDOC, no `--no-verify`, only commit when asked.
+
+## Agent do / don't
+
+**Do**
+
+- Start the subject with exactly one allowed prefix
+- Write the rest in imperative mood (`add`, `handle`, `document`)
+
+**Don't**
+
+- Omit the prefix
+- Use `wip:`, `update:`, `changes:`, or any prefix not in the table
+- Capitalize the subject after the prefix (`feat: Added the garden list page`)
+
+```
+feat: add garden list page
+fix: handle missing garden id
+docs: document commit message prefixes
+```
+
+```
+Add garden list
+wip: stuff
+feat: Added the garden list page
+```

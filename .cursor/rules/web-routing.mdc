@@ -1,0 +1,44 @@
+---
+description: MPA routing for apps/web. Use when adding routes, navigation, loaders, or changing React Router SSR config.
+globs: apps/web/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Routing in apps/web
+
+This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/profile`. Data fetching details live in the web data-fetching rule.
+
+## Split
+
+| Route | Kind | Data |
+| --- | --- | --- |
+| `/gardens` | SPA island | Client `useQuery` only. No server `loader` for garden/plant data |
+| `/profile` | MPA | Server `loader`, render `loaderData` |
+
+`/` redirects to `/gardens`. Nested `/gardens/:id` stays client-side later. Do not add more top-level documents without updating this rule.
+
+## Agent do / don't
+
+**Do**
+
+- Keep `ssr: true` in `react-router.config.ts`
+- Use `Link` with `reloadDocument` between `/gardens` and `/profile`
+- Fetch gardens/plants with `useQuery` in the gardens page
+- Fetch profile users in a server `loader` and pass `loaderData`
+
+**Don't**
+
+- Set `ssr: false`
+- Client-navigate between `/gardens` and `/profile`
+- Prefetch gardens in a server `loader` (`dehydrate` / `HydrationBoundary`)
+- Fetch profile/user data with `useQuery`
+
+```tsx
+<Link to="/profile" reloadDocument>
+  Profile
+</Link>
+```
+
+```tsx
+<Link to="/profile">Profile</Link>
+```

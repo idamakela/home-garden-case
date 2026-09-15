@@ -1,0 +1,99 @@
+---
+description: TanStack Query, API client, and page data practices for apps/web. Use when fetching, mutating, or adding routes that load API data.
+globs: apps/web/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Data fetching in apps/web
+
+Pages own server state. Which path a page uses is in the web routing rule. Do not fetch in `useEffect`. Styling and atomic layers stay in the other web rules.
+
+## Ownership
+
+```
+MPA page (/profile): get* in route loader → loaderData → organism props
+SPA page (/gardens): queryOptions → page useQuery/useMutation → organism props
+```
+
+- Put keys, `queryOptions`, and mutation fns in `app/queries/*`.
+- Call `useQuery` / `useMutation` only in **SPA pages**. MPA pages render `loaderData`.
+- Pass results into organisms. Never `useQuery` in atoms, molecules, or templates.
+
+## QueryClient
+
+Browser singleton via `getQueryClient()`. New client on the server if a tree still renders Query. Never share a server client across requests.
+
+Default `staleTime` is 60s. `retry: 2` in the app; **`retry: false` in tests**.
+
+## API
+
+Use `api()` from `app/lib/api.ts` only. Base URL is `http://localhost:3000` (`VITE_API_URL` overrides). DELETE returns 204 — `api()` already treats that as success.
+
+Do not invent URLs. Read `http://localhost:3000/docs/json` or `apps/api/src/app/schemas/`.
+
+Every function that calls `api()` is named `<httpMethod><Resource>` in camelCase: `getGardens`, `postGarden`, `putGarden`, `deleteGarden`. `queryOptions` factories stay `*Query` and call the `get*` function. Mutation fns **are** the `post*` / `put*` / `delete*` functions.
+
+Mutations `invalidateQueries` the resource parent key (`gardenKeys.all`, `plantKeys.byGarden(id)`, `userKeys.all`).
+
+## Agent do / don't
+
+**Do**
+
+- Use `useQuery(gardensQuery())` on `/gardens` with pending/error UI in the page
+- Use `getUsers()` in the `/profile` `loader` and pass `loaderData.users`
+- Name every `api()` wrapper `<httpMethod><Resource>` (`getGardens`, `postGarden`)
+
+**Don't**
+
+- `useEffect` + `fetch` / axios
+- `useQuery` below the page layer, or on `/profile`
+- Server-`loader` prefetch + `dehydrate` for gardens
+- Name fetch helpers `create*` / `update*` instead of `post*` / `put*`
+
+## Good / bad
+
+```tsx
+export default function GardensPage() {
+  return (
+    <AppShell>
+      <GardensPanel />
+    </AppShell>
+  );
+}
+
+function GardensPanel() {
+  const { data, isPending, isError, refetch } = useQuery(gardensQuery());
+  if (isPending) return <p>Loading gardens…</p>;
+  if (isError) return <Button onClick={() => refetch()}>Retry</Button>;
+  return <GardenList gardens={data} />;
+}
+```
+
+```tsx
+export async function loader() {
+  const users = await getUsers();
+  return { users };
+}
+
+export default function ProfilePage({ loaderData }: { loaderData: { users: User[] } }) {
+  return (
+    <AppShell>
+      <UserList users={loaderData.users} />
+    </AppShell>
+  );
+}
+```
+
+```tsx
+export default function GardensPage() {
+  const [gardens, setGardens] = useState([]);
+
+  useEffect(() => {
+    fetch('http://localhost:3000/gardens')
+      .then((response) => response.json())
+      .then(setGardens);
+  }, []);
+
+  return <GardenList gardens={gardens} />;
+}
+```
