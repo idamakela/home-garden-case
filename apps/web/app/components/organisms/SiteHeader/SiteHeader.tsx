@@ -9,8 +9,8 @@ export function SiteHeader() {
         <Link to="/gardens" reloadDocument className={styles.link}>
           Gardens
         </Link>
-        <Link to="/profile" reloadDocument className={styles.link}>
-          Profile
+        <Link to="/my-garden" reloadDocument className={styles.link}>
+          My Garden
         </Link>
       </nav>
     </header>

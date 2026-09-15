@@ -11,12 +11,12 @@ Pages own server state. Which path a page uses is in the web routing rule. Do no
 ## Ownership
 
 ```
-MPA page (/profile): get* in route loader → loaderData → organism props
 SPA page (/gardens): queryOptions → page useQuery/useMutation → organism props
+MPA page (/my-garden): static stub. No loader or query until the feature is implemented
 ```
 
 - Put keys, `queryOptions`, and mutation fns in `app/queries/*`.
-- Call `useQuery` / `useMutation` only in **SPA pages**. MPA pages render `loaderData`.
+- Call `useQuery` / `useMutation` only in **SPA pages**.
 - Pass results into organisms. Never `useQuery` in atoms, molecules, or templates.
 
 ## QueryClient
@@ -40,13 +40,13 @@ Mutations `invalidateQueries` the resource parent key (`gardenKeys.all`, `plantK
 **Do**
 
 - Use `useQuery(gardensQuery())` on `/gardens` with pending/error UI in the page
-- Use `getUsers()` in the `/profile` `loader` and pass `loaderData.users`
+- Keep `/my-garden` a static stub (no `loader`, no `useQuery`) until the feature is implemented
 - Name every `api()` wrapper `<httpMethod><Resource>` (`getGardens`, `postGarden`)
 
 **Don't**
 
 - `useEffect` + `fetch` / axios
-- `useQuery` below the page layer, or on `/profile`
+- `useQuery` below the page layer, or on `/my-garden`
 - Server-`loader` prefetch + `dehydrate` for gardens
 - Name fetch helpers `create*` / `update*` instead of `post*` / `put*`
 
@@ -70,15 +70,10 @@ function GardensPanel() {
 ```
 
 ```tsx
-export async function loader() {
-  const users = await getUsers();
-  return { users };
-}
-
-export default function ProfilePage({ loaderData }: { loaderData: { users: User[] } }) {
+export default function MyGardenPage() {
   return (
     <AppShell>
-      <UserList users={loaderData.users} />
+      <Text>this has yet to be implemented :(</Text>
     </AppShell>
   );
 }

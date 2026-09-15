@@ -6,14 +6,14 @@ alwaysApply: false
 
 # Routing in apps/web
 
-This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/profile`. Data fetching details live in the web data-fetching rule.
+This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden`. Data fetching details live in the web data-fetching rule.
 
 ## Split
 
 | Route | Kind | Data |
 | --- | --- | --- |
 | `/gardens` | SPA island | Client `useQuery` only. No server `loader` for garden/plant data |
-| `/profile` | MPA | Server `loader`, render `loaderData` |
+| `/my-garden` | MPA | Static stub. No server `loader` |
 
 `/` redirects to `/gardens`. Nested `/gardens/:id` stays client-side later. Do not add more top-level documents without updating this rule.
 
@@ -22,23 +22,23 @@ This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/profile`.
 **Do**
 
 - Keep `ssr: true` in `react-router.config.ts`
-- Use `Link` with `reloadDocument` between `/gardens` and `/profile`
+- Use `Link` with `reloadDocument` between `/gardens` and `/my-garden`
 - Fetch gardens/plants with `useQuery` in the gardens page
-- Fetch profile users in a server `loader` and pass `loaderData`
+- Keep `/my-garden` static until the feature is implemented
 
 **Don't**
 
 - Set `ssr: false`
-- Client-navigate between `/gardens` and `/profile`
+- Client-navigate between `/gardens` and `/my-garden`
 - Prefetch gardens in a server `loader` (`dehydrate` / `HydrationBoundary`)
-- Fetch profile/user data with `useQuery`
+- Fetch my-garden/user data with `useQuery` or a server `loader`
 
 ```tsx
-<Link to="/profile" reloadDocument>
-  Profile
+<Link to="/my-garden" reloadDocument>
+  My Garden
 </Link>
 ```
 
 ```tsx
-<Link to="/profile">Profile</Link>
+<Link to="/my-garden">My Garden</Link>
 ```
