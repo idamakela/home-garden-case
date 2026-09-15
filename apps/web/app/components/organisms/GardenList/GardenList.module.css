@@ -8,17 +8,6 @@
   color: var(--color-text);
 }
 
-.list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.item {
-  color: var(--color-text);
-  padding-block: var(--space-md);
-}
-
 .empty {
   margin: 0;
   color: var(--color-text);

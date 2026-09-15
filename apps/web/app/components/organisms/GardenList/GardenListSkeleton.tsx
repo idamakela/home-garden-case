@@ -1,0 +1,37 @@
+import { Skeleton, Table } from '@mantine/core';
+import styles from './GardenList.module.css';
+
+const PLACEHOLDER_ROWS = [0, 1, 2, 3, 4] as const;
+const PLACEHOLDER_COLUMNS = [0, 1, 2, 3] as const;
+
+export function GardenListSkeleton() {
+  return (
+    <section className={styles.root} aria-busy="true" aria-label="Loading gardens">
+      <Skeleton height={32} width="30%" />
+      <Table.ScrollContainer minWidth={500}>
+        <Table withTableBorder tabularNums>
+          <Table.Thead>
+            <Table.Tr>
+              {PLACEHOLDER_COLUMNS.map((column) => (
+                <Table.Th key={column}>
+                  <Skeleton height={8} />
+                </Table.Th>
+              ))}
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {PLACEHOLDER_ROWS.map((row) => (
+              <Table.Tr key={row}>
+                {PLACEHOLDER_COLUMNS.map((column) => (
+                  <Table.Td key={column}>
+                    <Skeleton height={8} />
+                  </Table.Td>
+                ))}
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+    </section>
+  );
+}
