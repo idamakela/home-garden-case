@@ -1,12 +1,16 @@
 ---
-description: TanStack Query, API client, and page data practices for apps/web. Use when fetching, mutating, or adding routes that load API data.
-globs: apps/web/**/*.{ts,tsx}
+description: TanStack Query, api() wrappers, and fetch performance for apps/web. Use when adding queries, mutations, query-client defaults, or routes that load API data.
+globs:
+  - apps/web/app/queries/**/*.ts
+  - apps/web/app/lib/query-client.ts
+  - apps/web/app/routes/**/*.tsx
+  - apps/web/tests/**/*.tsx
 alwaysApply: false
 ---
 
 # Data fetching in apps/web
 
-Pages own server state. Which path a page uses is in the web routing rule. Do not fetch in `useEffect`. Styling and atomic layers stay in the other web rules.
+Pages own server state. Do not fetch in `useEffect`. Branch pending / empty / error in the page (Mantine `Skeleton` / `Alert`). Every non-docs API call waits **200–2000ms** and fails **~10%** of the time — keep round trips low. Do not invent URLs; use the Home Garden API skill.
 
 ## Ownership
 
@@ -18,77 +22,55 @@ MPA page (/my-garden): static stub. No loader or query until the feature is impl
 - Put keys, `queryOptions`, and mutation fns in `app/queries/*`.
 - Call `useQuery` / `useMutation` only in **SPA pages**.
 - Pass results into organisms. Never `useQuery` in atoms, molecules, or templates.
+- Use `api()` from `app/lib/api.ts` only. Name wrappers `<httpMethod><Resource>` (`getGardens`, `postGarden`). `queryOptions` factories stay `*Query`.
 
-## QueryClient
+## QueryClient and round trips
 
-Browser singleton via `getQueryClient()`. New client on the server if a tree still renders Query. Never share a server client across requests.
+Browser singleton via `getQueryClient()`. New client on the server. Never share a server client across requests.
 
-Default `staleTime` is 60s. `retry: 2` in the app; **`retry: false` in tests**.
+Default `staleTime` is 60s. `retry: 2` in the app; **`retry: false` in tests**. Mutations `invalidateQueries` the resource parent key (`gardenKeys.all`, `plantKeys.byGarden(id)`).
 
-## API
-
-Use `api()` from `app/lib/api.ts` only. Base URL is `http://localhost:3000` (`VITE_API_URL` overrides). DELETE returns 204 — `api()` already treats that as success.
-
-Do not invent URLs. Read `http://localhost:3000/docs/json` or `apps/api/src/app/schemas/`.
-
-Every function that calls `api()` is named `<httpMethod><Resource>` in camelCase: `getGardens`, `postGarden`, `putGarden`, `deleteGarden`. `queryOptions` factories stay `*Query` and call the `get*` function. Mutation fns **are** the `post*` / `put*` / `delete*` functions.
-
-Mutations `invalidateQueries` the resource parent key (`gardenKeys.all`, `plantKeys.byGarden(id)`, `userKeys.all`).
+Use one list call for a list. Start independent requests together (`useQueries`) when the id is already in the URL. Do not fetch per row, waterfall `queryFn`s, set `staleTime: 0`, or disable the API delay/error plugins.
 
 ## Agent do / don't
 
 **Do**
 
-- Use `useQuery(gardensQuery())` on `/gardens` with pending/error UI in the page
-- Keep `/my-garden` a static stub (no `loader`, no `useQuery`) until the feature is implemented
-- Name every `api()` wrapper `<httpMethod><Resource>` (`getGardens`, `postGarden`)
+- Use `useQuery(gardensQuery())` on `/gardens`
+- Keep `/my-garden` a static stub until the feature is implemented
+- Name every `api()` wrapper `<httpMethod><Resource>`
 
 **Don't**
 
 - `useEffect` + `fetch` / axios
 - `useQuery` below the page layer, or on `/my-garden`
 - Server-`loader` prefetch + `dehydrate` for gardens
-- Name fetch helpers `create*` / `update*` instead of `post*` / `put*`
+- Fetch per row inside a list item
 
 ## Good / bad
 
 ```tsx
-export default function GardensPage() {
-  return (
-    <AppShell>
-      <GardensPanel />
-    </AppShell>
-  );
-}
-
 function GardensPanel() {
   const { data, isPending, isError, refetch } = useQuery(gardensQuery());
-  if (isPending) return <p>Loading gardens…</p>;
-  if (isError) return <Button onClick={() => refetch()}>Retry</Button>;
+  if (isPending) return <GardenListSkeleton />;
+  if (isError) {
+    return (
+      <Alert title="Could not load gardens" color="red">
+        Something went wrong. Try again.
+        <Button variant="primary" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </Alert>
+    );
+  }
   return <GardenList gardens={data} />;
 }
 ```
 
 ```tsx
-export default function MyGardenPage() {
-  return (
-    <AppShell>
-      <Text>this has yet to be implemented :(</Text>
-    </AppShell>
-  );
-}
-```
-
-```tsx
-export default function GardensPage() {
-  const [gardens, setGardens] = useState([]);
-
-  useEffect(() => {
-    fetch('http://localhost:3000/gardens')
-      .then((response) => response.json())
-      .then(setGardens);
-  }, []);
-
-  return <GardenList gardens={gardens} />;
+// Bad — useEffect fetch; per-row query
+function GardenRow({ garden }: { garden: Garden }) {
+  const plants = useQuery(plantsByGardenQuery(garden.gardenId));
+  return <td>{plants.data?.length}</td>;
 }
 ```

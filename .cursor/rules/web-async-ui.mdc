@@ -1,0 +1,72 @@
+---
+description: Loading skeletons, empty states, and user-facing errors for apps/web and apps/web-e2e. Use when fetching, mutating, rendering async UI, or writing tests that cover pending/error/empty.
+globs:
+  - apps/web/app/routes/**/*.tsx
+  - apps/web/app/components/**/*Skeleton*
+  - apps/web/tests/**/*.{ts,tsx}
+  - apps/web-e2e/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Loading, empty, and error UI in apps/web
+
+Every async surface must cover pending, empty, and error — not only success. Pages own `useQuery`. Prefer Mantine `Skeleton`, `Alert`, and `Loader`.
+
+## Required states
+
+- **Pending, no data** (`isPending`): Mantine `Skeleton` that mirrors the loaded layout. Not a paragraph, spinner, or empty `AppShell`.
+- **Refetch with cache** (`isFetching` and data exists): keep the current UI. Never swap back to a skeleton.
+- **Empty** (success, zero items): honest empty copy. Not an error `Alert`.
+- **Error** (`isError` / mutation failure): Mantine `Alert` next to the failed region, plus Retry / `refetch`.
+- **In-flight action** (save, delete): `Loader` or Button `loading` on that control. Not a page skeleton.
+
+## User-facing errors
+
+- What happened + what to do (`Could not load gardens.` + Retry).
+- Map `ApiError` status to copy. Never show raw `error.message`, status codes, stacks, or API JSON as the main text.
+- Do not blame the user. Do not treat empty lists as errors.
+- Validation stays on the field; page and query failures use `Alert`.
+
+## Skeletons and tests
+
+- Colocate a `*Skeleton` with the organism it mirrors. Pages branch; they do not invent skeleton markup inline.
+- Placeholders are inert: no fake readable text or focusable controls.
+- Tests (unit and e2e) for each page that loads data must cover pending, error + retry, empty, and success.
+
+## Agent do / don't
+
+**Do**
+
+- Branch in the page: skeleton → Alert + Retry → organism
+- Keep cached content on background refetch
+- Write tests for pending, error, empty, and success
+
+**Don't**
+
+- Render `Loading…` or a spinner as the page pending state
+- Dump `error.message` or API JSON to the user
+- Swap a loaded list back to a skeleton on refetch
+
+```tsx
+function GardensPanel() {
+  const { data, isPending, isError, refetch } = useQuery(gardensQuery());
+  if (isPending) return <GardenListSkeleton />;
+  if (isError) {
+    return (
+      <Alert title="Could not load gardens" color="red">
+        Something went wrong. Try again.
+        <Button variant="primary" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </Alert>
+    );
+  }
+  return <GardenList gardens={data} />;
+}
+```
+
+```tsx
+// Bad
+if (isPending) return <p>Loading gardens…</p>;
+if (isError) return <p>{error.message}</p>;
+```

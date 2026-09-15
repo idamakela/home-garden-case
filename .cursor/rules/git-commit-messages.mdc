@@ -1,6 +1,6 @@
 ---
 description: Conventional commit prefixes. Use when creating a git commit.
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Git commit messages

@@ -1,175 +1,59 @@
 ---
-description: CSS Modules and styling standards. Use when adding or changing styles, layout, visual UI, or .module.css files.
-globs: apps/web/**/*.{css,module.css,tsx,jsx}
+description: CSS Modules for apps/web. Use when adding or changing .css or .module.css files.
+globs:
+  - apps/web/app/components/**/*.{css,module.css}
+  - apps/web/styles/**/*.{css,module.css}
+  - apps/web/styles.css
 alwaysApply: false
 ---
 
 # CSS Modules and styling
 
-Use CSS Modules for component styles. Do not add Tailwind, Sass, or CSS-in-JS. Prefer the bundler's built-in `*.module.css` support. `postcss-preset-mantine` is allowed (`rem()`, `@mixin`, `light-dark()`).
-
-## Dependency direction
-
-Styles flow one way. Never reverse:
+Use CSS Modules for component styles. Do not add Tailwind, Sass, or CSS-in-JS. `postcss-preset-mantine` is allowed (`rem()`, `@mixin`, `light-dark()`).
 
 ```
 tokens → reset → shared primitives → colocated component modules
 ```
 
-Map SOLID onto that pipeline:
+- One `.module.css` per component; one class, one job (`root`, `title`, `actions`)
+- Colocate `Component.tsx` with `Component.module.css`
+- Tokens, reset, and primitives live under `styles/`
+- Compose shared primitives **into** components. Never import another component's `.module.css`
+- Modules use `--mantine-*` or semantic aliases in `styles/tokens.css`. No raw hex/rgb/oklch
+- camelCase classes; `composes` first in a rule; no circular `composes`; nesting at most two levels; no IDs or `!important`
+- `:global` only for third-party hooks. Never wrap a whole module in `:global`
 
-- **SRP** — one `.module.css` per component; one class, one job (`root`, `title`, `actions`). Tokens, reset, and components live in separate files.
-- **OCP** — extend with variants, `composes`, or new token values. Do not edit a shared primitive to satisfy one screen.
-- **LSP** — composed classes must be safe substitutes. Do not `composes` two classes from different files that set the same property (cross-file apply order is undefined).
-- **ISP** — export a small class API. No kitchen-sink class that every sibling depends on.
-- **DIP** — components depend on `--mantine-*` CSS variables or the semantic aliases in `styles/tokens.css` (`--color-text`, `--space-md`). Never raw palette values, hex/oklch, or another component's internal classes.
-
-Shared primitives compose **into** components. Components never compose from each other.
-
-## File roles
-
-Describe files by role, not by a fixed app tree:
-
-| Role | Owns | Does not own |
-| --- | --- | --- |
-| Global entry | `@layer` order and `@import`s only | Component visuals |
-| Tokens | Semantic aliases of `--mantine-*` vars | Selectors for UI |
-| Reset | Box-sizing and document margin only | Body color/font (Mantine owns those) |
-| Primitives | Reusable layout or type classes, wrapped in `@layer` | Screen-specific look |
-| Component module | One component's visuals and internal layout | Global resets or tokens |
-
-Colocate `Component.tsx` with `Component.module.css`. Put tokens, reset, and primitives beside each other under a styles directory (for example `styles/tokens.css`, `styles/reset.css`, `styles/primitives.module.css`).
-
-## Global vs module
-
-**Global:** cascade layer order, CSS variables, document defaults, fonts.
-
-**Module:** visual treatment and internal layout of one component.
-
-`:global` only for third-party hooks or document-level state. Never wrap a whole module in `:global`.
-
-## Cascade layers
-
-Declare a single order in the global entry:
-
-```css
-@layer reset, tokens, primitives;
-```
-
-Wrap shared styles in those layers. Leave colocated component modules **unlayered**. Unlayered rules beat layered ones at equal specificity, so a local module can override a primitive without `!important` or extra specificity.
-
-## Tokens
-
-The forest palette lives in `apps/web/app/theme.ts`. Modules use `--mantine-*` or semantic aliases that wrap them.
-
-```css
-@layer tokens {
-  :root {
-    --color-text: var(--mantine-color-forest-9);
-    --color-surface: var(--mantine-color-forest-0);
-    --space-md: var(--mantine-spacing-xs);
-    --space-lg: var(--mantine-spacing-md);
-  }
-}
-```
-
-No magic numbers for color, spacing, or type in modules. Use `var(--...)`.
-
-## CSS Modules mechanics
-
-- camelCase class names so `styles.root` works with dot access
-- `import styles from './Button.module.css'`
-- `composes` must be the first declarations in a rule; no circular `composes`
-- Compose shared primitives instead of copying declarations
-- Nesting at most two levels
-- No IDs and no `!important`
-- State and exceptions via `data-*` so JS and CSS share one hook: `[data-state='open']`, `[data-variant='primary']`
-- Visual variants may also be extra classes combined in TSX
-
-```css
-/* primitives.module.css */
-@layer primitives {
-  .stack {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-md);
-  }
-}
-```
-
-```css
-/* GardenList.module.css */
-.root {
-  composes: stack from '../../../../styles/primitives.module.css';
-  margin: 0;
-}
-
-.title {
-  margin: 0;
-  color: var(--color-text);
-}
-
-.item {
-  color: var(--color-text);
-  padding-block: var(--space-md);
-}
-```
+Declare `@layer reset, tokens, primitives;` in the global entry. Wrap shared styles in those layers. Leave colocated component modules **unlayered**.
 
 ## Agent do / don't
 
 **Do**
 
 - Colocate a module with its component
-- Create token / reset / primitive files when they are missing, then use them
-- Keep selectors shallow
 - Compose primitives; override in the unlayered local module
 - Verify visual changes in the browser
 
 **Don't**
 
-- Dump global CSS in a `<style>` tag or `dangerouslySetInnerHTML`
-- Add Tailwind, Sass, or CSS-in-JS. `postcss-preset-mantine` is allowed.
-- Import another component's `.module.css` to style this one
-- Use unscoped global class names for components (`.button`, `.wrapper`)
-- Reach for a parallel palette or raw hex/rgb/oklch in a component module
+- Add Tailwind, Sass, or CSS-in-JS
+- Import another component's `.module.css`
+- Use unscoped global class names (`.button`, `.wrapper`)
 
-## Good / bad
-
-```tsx
-// Good
-import styles from './GardenList.module.css';
-
-export function GardenList({ name }: { name: string }) {
-  return (
-    <section className={styles.root}>
-      <h1 className={styles.title}>{name}</h1>
-    </section>
-  );
-}
-```
-
-```tsx
-// Bad — unscoped names, magic numbers, sibling-module coupling
-import cardStyles from '../Card/Card.module.css';
-
-export function Button({ children }: { children: React.ReactNode }) {
-  return (
-    <button className={`button ${cardStyles.root}`} style={{ color: '#228B22' }}>
-      {children}
-    </button>
-  );
+```css
+.root {
+  composes: stack from '../../../../styles/primitives.module.css';
+  margin: 0;
+  color: var(--color-text);
 }
 ```
 
 ```css
-/* Bad — composes conflicting properties from two files; kebab-case; :global leak */
+/* Bad — sibling-module coupling; kebab-case; :global leak */
 .cta-button {
-  composes: stack from '../styles/primitives.module.css';
   composes: padded from '../Card/Card.module.css';
 }
 
 :global(.button) {
-  padding: 12px;
   color: #228b22;
 }
 ```

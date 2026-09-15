@@ -1,118 +1,54 @@
 ---
-description: SOLID and Clean Code for TypeScript/JavaScript. Use when writing or refactoring app, API, or test code.
-globs: "**/*.{ts,tsx,js,jsx}"
+description: SOLID and Clean Code for apps/web and apps/web-e2e. Use when writing or refactoring TypeScript, React, tests, or Playwright specs.
+globs:
+  - apps/web/app/components/**/*.{ts,tsx}
+  - apps/web/app/routes/**/*.{ts,tsx}
+  - apps/web/app/queries/**/*.ts
+  - apps/web/app/lib/query-client.ts
+  - apps/web/app/root.tsx
+  - apps/web/app/routes.tsx
+  - apps/web/app/theme.ts
+  - apps/web/tests/**/*.{ts,tsx}
+  - apps/web-e2e/**/*.{ts,tsx}
 alwaysApply: false
 ---
 
 # SOLID and Clean Code
 
-Structure types, functions, classes, and modules so each has one job and depends on abstractions. Formatting is Prettier (single quotes, printWidth 100) and ESLint. CSS lives in the CSS Modules rule. UI folders live in the Atomic Design rule. Do not invent API endpoints; use the Home Garden API skill.
-
-## Dependency direction
-
-Application code flows one way. Never reverse:
-
-```
-routes (HTTP) → services (use cases) → repositories (SQL) → db
-```
-
-Keep the existing seams: Awilix registers classes in `apps/api/src/app/app.ts`. Routes resolve services from `fastify.diContainer`. Services take repositories in the constructor. Repositories take `Kysely`. Zod schemas live in `schemas/` and only describe shape.
-
-On the web: pages and loaders talk to the API. Atoms and molecules do not fetch.
+Structure types, functions, and modules so each has one job. Formatting is Prettier (single quotes, printWidth 100) and ESLint. Pages own `useQuery`; atoms do not fetch. Query wrappers use `api()` and `<httpMethod><Resource>` names (`getGardens`, `postGarden`). Do not invent API endpoints; use the Home Garden API skill.
 
 ## SOLID
 
-- **SRP** — a route file only binds HTTP; a service only runs the use case; a repository only talks to Kysely; a Zod schema only validates shape. Do not put SQL in a route or `reply.send` in a service.
-- **OCP** — extend with a new service, route, or schema. Do not grow `GardenService` into a god class or edit a shared helper for one caller.
-- **LSP** — subtypes and interface implementations must be safe substitutes. No extra required setup. Do not throw where the parent would return.
-- **ISP** — constructor deps and function args stay small (`{ gardenRepository }`, not a kitchen-sink `deps` bag). React props list only what the component uses.
-- **DIP** — inject collaborators. Do not `new GardenRepository()` inside a service. Do not hardcode `fetch` inside a molecule. Routes resolve services; they do not import repositories.
+- **SRP** — a page wires data and a template; a query module owns keys and `queryOptions`; a component renders props. Do not fetch inside an atom.
+- **OCP** — extend with a new query, component, or route. Do not grow one helper into a god module.
+- **LSP** — subtypes and wrappers must be safe substitutes. No extra required setup.
+- **ISP** — React props list only what the component uses. Function args stay small; more than two: group in a typed object.
+- **DIP** — pass data and callbacks as props. Do not hardcode `fetch` inside a molecule.
 
 ## Clean Code
 
-- Names say what the thing is (`getGardenById`, `NotFoundError`), not how (`data`, `handleClick`, `temp`, `info`)
+- Names say what the thing is (`getGardens`, `GardenList`), not how (`data`, `handleClick`, `temp`)
 - A function does one thing. If the name needs "and", split it
-- Prefer few arguments. More than two: group in a typed object
-- No empty `catch`. Throw or wrap domain errors from `apps/api/src/app/shared/errors.ts`
-- No leftover commented-out code. No JSDoc that restates the function name
-- Zod schemas stay in `schemas/`. Do not duplicate ad-hoc validation in services when the route already parsed the body
+- No empty `catch`. No leftover commented-out code. No JSDoc that restates the function name
 - Boy scout: leave this module cleaner. Do not drive-by refactor unrelated files
 
 ## Agent do / don't
 
 **Do**
 
-- Resolve services from the DI container in routes
-- Inject repositories into services through constructor `opts`
-- Use `NotFoundError`, `ValidationError`, `ConflictError` instead of generic `Error` for expected failures
 - Give functions and variables intention-revealing names
-- Keep React components props-driven; fetch in page loaders
+- Keep React components props-driven; fetch in SPA pages
+- Name every `api()` wrapper `<httpMethod><Resource>`
 
 **Don't**
 
-- Import a repository from a route, or Kysely from a service
 - Swallow errors with empty `catch`
-- Add JSDoc that only repeats the identifier
 - Pass unused props, or a god `options: any`
-- Copy-paste the same `if (!entity) throw` into every layer without a clear owner (the service owns not-found)
+- `useQuery` / `fetch` in atoms, molecules, or templates
 
 ## Good / bad
 
-```ts
-// Good — route only binds HTTP
-const gardenService = fastify.diContainer.resolve<GardenService>('gardenService');
-
-fastify.get('/gardens/:gardenId', async (request, reply) => {
-  const garden = await gardenService.getGardenById(request.params.gardenId);
-  return reply.send(garden);
-});
-```
-
-```ts
-// Bad — SQL and HTTP in one handler
-fastify.get('/gardens/:gardenId', async (request, reply) => {
-  const garden = await db
-    .selectFrom('garden')
-    .where('gardenId', '=', request.params.gardenId)
-    .selectAll()
-    .executeTakeFirst();
-  if (!garden) {
-    return reply.code(404).send({ message: 'missing' });
-  }
-  return reply.send(garden);
-});
-```
-
-```ts
-// Good — DIP: repository injected
-export class GardenService {
-  constructor(opts: { gardenRepository: GardenRepository }) {
-    this.gardenRepository = opts.gardenRepository;
-  }
-
-  async getGardenById(gardenId: number): Promise<Garden> {
-    const garden = await this.gardenRepository.findById(gardenId);
-    if (!garden) {
-      throw new NotFoundError(`Garden with ID ${gardenId} not found`);
-    }
-    return garden;
-  }
-}
-```
-
-```ts
-// Bad — new inside the service; empty catch; vague names
-export class GardenService {
-  async get(id: number) {
-    const repo = new GardenRepository({ db: getDb() });
-    try {
-      return await repo.findById(id);
-    } catch (e) {}
-  }
-}
-```
-
-```ts
+```tsx
 // Good — ISP: only the props the component uses
 type GardenNameProps = { name: string };
 

@@ -2,8 +2,8 @@
 name: mantine
 description: >-
   Loads Mantine LLM docs from https://mantine.dev/llms.txt.
-  Use when building or changing Mantine UI, or when the user mentions
-  Mantine components, theming, hooks, or /llms.
+  Use when building or changing Mantine UI in apps/web, or when the user
+  mentions Mantine components, theming, hooks, or /llms.
 ---
 
 # Mantine docs
@@ -20,3 +20,5 @@ description: >-
 
 - `https://mantine.dev/llms-full.txt` is the full dump. Only use it if
   the index is not enough; prefer the per-page files.
+- Project constraints (prefer `@mantine/core`, forest theme, no duplicate
+  Button atoms) live in `.cursor/rules/mantine.mdc`.

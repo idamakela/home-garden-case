@@ -2,9 +2,10 @@
 name: home-garden-api
 description: >-
   Loads the Home Garden API contract from the running Fastify OpenAPI JSON.
-  Use when building or changing apps/web against the API, planning
-  frontend features that call the backend, or when the user mentions API
-  endpoints, gardens, plants, users, or /docs.
+  Use when building or changing apps/web queries, routes, or apps/web-e2e
+  coverage that call the API, or when the user mentions API endpoints,
+  gardens, plants, users, or /docs. Not needed for edits to
+  app/lib/api.ts alone.
 ---
 
 # Home Garden API contract
@@ -24,3 +25,5 @@ description: >-
 
 - Base URL for the API is `http://localhost:3000` (see README).
 - Do not invent endpoints; use the OpenAPI doc or Zod route schemas.
+- Call the API through `api()` from `app/lib/api.ts`. Do not attach
+  web UI rules to that file; this skill covers the contract.

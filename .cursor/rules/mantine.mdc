@@ -1,12 +1,15 @@
 ---
-description: Prefer Mantine components and the forest theme when building or changing web UI.
-globs: apps/web/**/*.{tsx,jsx,css,module.css}
+description: Prefer Mantine and the forest theme when building apps/web UI. Use when changing components, theme.ts, or root.tsx.
+globs:
+  - apps/web/app/components/**/*.tsx
+  - apps/web/app/theme.ts
+  - apps/web/app/root.tsx
 alwaysApply: false
 ---
 
 # Mantine components and theme
 
-The web app uses `@mantine/core` with the forest theme in `apps/web/app/theme.ts`. Fetch Mantine LLM docs before writing Mantine code: `https://mantine.dev/llms.txt`, then the matching page under `https://mantine.dev/llms/` (for example `core-button.md`). Do not invent props, styles APIs, or package names.
+The web app uses `@mantine/core` with the forest theme in `apps/web/app/theme.ts`. Load the Mantine skill before writing Mantine code. Do not invent props, styles APIs, or package names.
 
 ## Prefer Mantine
 
@@ -36,13 +39,7 @@ export function EmptyGardens({ onRetry }: { onRetry: () => void }) {
 
 ```tsx
 // Bad — skip Mantine, hardcode color
-import styles from './Card.module.css';
-
 export function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <div className={`card ${styles.root}`} style={{ color: '#228B22' }}>
-      {children}
-    </div>
-  );
+  return <div style={{ color: '#228B22' }}>{children}</div>;
 }
 ```

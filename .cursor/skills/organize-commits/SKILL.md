@@ -18,7 +18,7 @@ Only when the user explicitly asks (e.g. "organize commits", "split the working 
 
 1. Inspect: `git status`, `git diff`, `git diff --cached`, `git log` (message style).
 2. If the index mixes `.cursor/` with `apps/`, lockfile, or `docs/`, run `git restore --staged .` first. Working tree stays on disk.
-3. Read `.cursor/rules/git-commit-messages.mdc`. Subjects: one allowed prefix (`feat:`, `fix:`, `refactor:`, `docs:`, `style:`, `test:`, `chore:`), then imperative lowercase. HEREDOC. No `--no-verify`. Do not push unless asked. Do not amend unless the user asks and the amend rules allow it.
+3. Read `.cursor/rules/git-commit-messages.mdc` (description-only; it is not always-on). Subjects: one allowed prefix (`feat:`, `fix:`, `refactor:`, `docs:`, `style:`, `test:`, `chore:`), then imperative lowercase. HEREDOC. No `--no-verify`. Do not push unless asked. Do not amend unless the user asks and the amend rules allow it.
 4. Group files, then commit one group at a time. After all groups, `git status`. If there is nothing to commit, stop (no empty commit).
 
 ## Grouping

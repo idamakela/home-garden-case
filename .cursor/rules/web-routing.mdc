@@ -1,12 +1,18 @@
 ---
-description: MPA routing for apps/web. Use when adding routes, navigation, loaders, or changing React Router SSR config.
-globs: apps/web/**/*.{ts,tsx}
+description: MPA routing for apps/web and Playwright coverage in apps/web-e2e. Use when adding routes, navigation, loaders, React Router SSR config, or e2e specs for /gardens and /my-garden.
+globs:
+  - apps/web/app/routes.tsx
+  - apps/web/app/routes/**/*.{ts,tsx}
+  - apps/web/app/root.tsx
+  - apps/web/react-router.config.ts
+  - apps/web/tests/routes/**/*.{ts,tsx}
+  - apps/web-e2e/**/*.{ts,tsx}
 alwaysApply: false
 ---
 
 # Routing in apps/web
 
-This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden`. Data fetching details live in the web data-fetching rule.
+This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden`. Pages own `useQuery`; do not prefetch garden data in a server `loader`.
 
 ## Split
 

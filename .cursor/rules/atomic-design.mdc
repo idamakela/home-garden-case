@@ -1,32 +1,32 @@
 ---
-description: Atomic Design and component-first workflow for apps/web. Use when adding or changing UI, routes, layouts, or React components.
-globs: apps/web/**/*.{tsx,jsx,ts}
+description: Atomic Design and component-first UI for apps/web. Use when adding or changing React components, layouts, or route JSX.
+globs:
+  - apps/web/app/components/**/*.tsx
+  - apps/web/app/routes/**/*.tsx
 alwaysApply: false
 ---
 
 # Atomic Design and component-first UI
 
-Treat the web UI as a hierarchy of parts and a cohesive whole at the same time. Do not dump a screen into a route file. Build and reuse components, then compose them into templates and pages.
+Do not dump a screen into a route file. Build and reuse components, then compose them into templates and pages. Prefer `@mantine/core` when a component exists. Colocate a `.module.css` only when layout still needs it.
 
-Styling is not this rule. Follow the Mantine rule first: use `@mantine/core` when a component exists. Colocate a `.module.css` only when layout still needs it, and follow the CSS Modules rule for tokens, layers, and `composes`.
-
-Atomic Design is not a waterfall. Do not invent every button in isolation, then hope a page appears. Zoom into a component, then step back to the page. Parts inform the whole; the whole informs the parts.
+Atomic Design is not a waterfall. Zoom into a component, then step back to the page.
 
 ## Layers
 
 | Layer | Owns | Does not own |
 | --- | --- | --- |
-| Atom | One HTML control or styled wrapper: button, input, label, heading, icon | Other app components, data fetching, page layout |
-| Molecule | A small group of atoms with one job: labeled field, search form | Section-level layout, route data |
-| Organism | A distinct section: header, plant list, garden card grid | Route loaders, URL params |
-| Template | Page skeleton and slots (`children` or named regions) | Fetching, domain records, real copy |
-| Page | React Router route module: loaders/actions, real data, wiring a template | New atoms invented inline |
+| Atom | One HTML control or styled wrapper | Other app components, data fetching, page layout |
+| Molecule | A small group of atoms with one job | Section-level layout, route data |
+| Organism | A distinct section: header, plant list | Route loaders, URL params |
+| Template | Page skeleton and slots | Fetching, domain records, real copy |
+| Page | Route module: data, wiring a template | New atoms invented inline |
 
 When unsure, go **one level lower** and compose up.
 
 ## Folder tree
 
-Put reusable UI under `apps/web/app/components/`. Route modules stay pages.
+Reusable UI lives under `apps/web/app/components/`. Route modules stay pages.
 
 ```
 apps/web/app/
@@ -36,171 +36,47 @@ apps/web/app/
     organisms/
     templates/
   routes/
-    gardens.tsx   # SPA island page
-    my-garden.tsx # MPA page
-  root.tsx        # document shell, not a template
-  routes.tsx      # route table, not UI
+    gardens.tsx
+    my-garden.tsx
+  root.tsx
+  routes.tsx
 ```
 
-One component per folder: `Button.tsx`, plus `Button.module.css` only when the wrapper needs layout CSS. Name folders and files after the component, not the screen (`SearchField`, not `HomeSearch`).
-
-`root.tsx` is the HTML document. `routes.tsx` only registers routes. Neither is a template or a page UI.
+One component per folder, named after the component (`SearchField`, not `HomeSearch`). `root.tsx` is the HTML document. `routes.tsx` only registers routes.
 
 ## Dependency direction
-
-Composition flows one way. Never reverse:
 
 ```
 pages → templates → organisms → molecules → atoms
 ```
 
-- Lower layers never import higher layers.
-- Atoms never import other app components.
-- Organisms may import other organisms.
-- Templates import organisms (and below), never pages.
-- Pages import templates (and below). Keep pages thin.
-- Data fetching lives in **pages**. Follow the web routing and data-fetching rules (`/gardens` uses `useQuery`; `/my-garden` is a static stub). Organisms may receive data as props. Never `useQuery`/`useMutation` or `fetch` in atoms, molecules, or templates.
+- Lower layers never import higher layers. Atoms never import other app components.
+- Pages own `useQuery`. Never `useQuery`/`useMutation` or `fetch` in atoms, molecules, or templates.
 - Do not import another component's `.module.css`.
 
 ## Component-first workflow
 
-On any new screen or UI change:
-
-1. **Inventory** — list the UI pieces before writing a route.
-2. **Reuse** — search `@mantine/core`, then `app/components/`. Do not invent Button, Title, Text, Anchor, Stack, Group, Card, Alert, Loader, or TextInput atoms.
-3. **Classify** — place each new piece at the lowest honest layer.
-4. **Build** — create missing atoms → molecules → organisms → template, then wire the page. Atoms that wrap Mantine stay thin (map props, render the Mantine component).
-5. **Check the whole** — compose them in the route. Verify the page, including the browser for visual work.
-6. **Extract on growth** — if a route or organism grows past one job, split it down a level.
-
-Route files compose templates and organisms. They do not invent new atoms as inline markup.
+1. Inventory the UI pieces before writing a route.
+2. Reuse `@mantine/core`, then `app/components/`. Do not invent Button, Title, Text, Stack, or TextInput atoms.
+3. Place each new piece at the lowest honest layer.
+4. Build atoms → molecules → organisms → template, then wire the page.
+5. Verify the page in the browser for visual work.
 
 ## Agent do / don't
 
 **Do**
 
-- Search `@mantine/core` and existing atoms/molecules/organisms before creating new ones
+- Search `@mantine/core` and existing components before creating new ones
 - Keep route modules thin: load data, pass props, render a template
-- Give components props instead of hard-coding feature copy inside atoms
 - Extract a molecule when the same atom cluster appears twice
-- Re-check the page after extracting so the whole still holds together
 
 **Don't**
 
 - Implement a feature as one large JSX tree in a route module
-- Put fetch/loader/`useQuery` logic in atoms, molecules, or templates
+- Put `useQuery` in atoms, molecules, or templates
 - Import a molecule from an atom, or a page from a template
-- Copy-paste a button or field instead of using Mantine or reusing the atom
-- Invent Button, Title, Text, or Stack atoms that duplicate `@mantine/core`
-- Argue the layer for long: pick the lower one and compose
 
 ## Good / bad
-
-```tsx
-// Good — thin atom wrapping Mantine
-import { Button as MantineButton } from '@mantine/core';
-
-const variantMap = {
-  primary: 'filled',
-  secondary: 'default',
-} as const;
-
-type ButtonProps = {
-  variant?: 'primary' | 'secondary';
-  children: React.ReactNode;
-};
-
-export function Button({ variant = 'secondary', children }: ButtonProps) {
-  return (
-    <MantineButton type="button" variant={variantMap[variant]}>
-      {children}
-    </MantineButton>
-  );
-}
-```
-
-```tsx
-// Good — molecule composing Mantine
-import { Button, TextInput } from '@mantine/core';
-import styles from './SearchField.module.css';
-
-type SearchFieldProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-};
-
-export function SearchField({
-  label,
-  value,
-  onChange,
-  onSubmit,
-}: SearchFieldProps) {
-  return (
-    <form
-      className={styles.root}
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit();
-      }}
-    >
-      <TextInput
-        label={label}
-        value={value}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      />
-      <Button>Search</Button>
-    </form>
-  );
-}
-```
-
-```tsx
-// Good — template is layout and slots only
-import { SiteHeader } from '../organisms/SiteHeader/SiteHeader';
-import styles from './AppShell.module.css';
-
-type AppShellProps = {
-  children: React.ReactNode;
-};
-
-export function AppShell({ children }: AppShellProps) {
-  return (
-    <div className={styles.root}>
-      <SiteHeader />
-      <main className={styles.main}>{children}</main>
-    </div>
-  );
-}
-```
-
-```tsx
-export default function GardensPage() {
-  return (
-    <AppShell>
-      <GardensPanel />
-    </AppShell>
-  );
-}
-
-function GardensPanel() {
-  const { data, isPending, isError, refetch } = useQuery(gardensQuery());
-  if (isPending) return <p>Loading gardens…</p>;
-  if (isError) return <Button onClick={() => refetch()}>Retry</Button>;
-  return <GardenList gardens={data} />;
-}
-```
-
-```tsx
-export default function MyGardenPage() {
-  return (
-    <AppShell>
-      <Text>this has yet to be implemented :(</Text>
-    </AppShell>
-  );
-}
-```
 
 ```tsx
 // Bad — monolithic route; new atoms inline; fetch in the component
@@ -214,9 +90,7 @@ export default function HomePage() {
   return (
     <div>
       <header>
-        <img src="/logo.svg" alt="" />
         <form>
-          <label>Search</label>
           <input />
           <button type="submit">Go</button>
         </form>
@@ -229,20 +103,6 @@ export default function HomePage() {
         ))}
       </ul>
     </div>
-  );
-}
-```
-
-```tsx
-// Bad — atom importing a molecule; reversed dependency
-import { SearchField } from '../molecules/SearchField';
-
-export function Button(props: { children: React.ReactNode }) {
-  return (
-    <button type="button">
-      {props.children}
-      <SearchField label="Find" value="" onChange={() => {}} onSubmit={() => {}} />
-    </button>
   );
 }
 ```
