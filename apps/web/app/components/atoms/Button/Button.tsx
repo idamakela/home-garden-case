@@ -1,5 +1,11 @@
+import { Button as MantineButton } from '@mantine/core';
 import type { ReactNode } from 'react';
 import styles from './Button.module.css';
+
+const variantMap = {
+  primary: 'filled',
+  secondary: 'default',
+} as const;
 
 type ButtonProps = {
   variant?: 'primary' | 'secondary';
@@ -10,15 +16,14 @@ type ButtonProps = {
 
 export function Button({ variant = 'secondary', disabled, onClick, children }: ButtonProps) {
   return (
-    <button
+    <MantineButton
       type="button"
       className={styles.root}
-      data-variant={variant}
-      data-state={disabled ? 'disabled' : undefined}
+      variant={variantMap[variant]}
       disabled={disabled}
       onClick={onClick}
     >
       {children}
-    </button>
+    </MantineButton>
   );
 }

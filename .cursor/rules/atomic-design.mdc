@@ -8,7 +8,7 @@ alwaysApply: false
 
 Treat the web UI as a hierarchy of parts and a cohesive whole at the same time. Do not dump a screen into a route file. Build and reuse components, then compose them into templates and pages.
 
-Styling is not this rule. Colocate `Component.tsx` with `Component.module.css` and follow the CSS Modules rule for tokens, layers, and `composes`.
+Styling is not this rule. Follow the Mantine rule first: use `@mantine/core` when a component exists. Colocate a `.module.css` only when layout still needs it, and follow the CSS Modules rule for tokens, layers, and `composes`.
 
 Atomic Design is not a waterfall. Do not invent every button in isolation, then hope a page appears. Zoom into a component, then step back to the page. Parts inform the whole; the whole informs the parts.
 
@@ -42,7 +42,7 @@ apps/web/app/
   routes.tsx      # route table, not UI
 ```
 
-One component per colocated pair: `Button.tsx` + `Button.module.css`. Name folders and files after the component, not the screen (`SearchField`, not `HomeSearch`).
+One component per folder: `Button.tsx`, plus `Button.module.css` only when the wrapper needs layout CSS. Name folders and files after the component, not the screen (`SearchField`, not `HomeSearch`).
 
 `root.tsx` is the HTML document. `routes.tsx` only registers routes. Neither is a template or a page UI.
 
@@ -67,9 +67,9 @@ pages → templates → organisms → molecules → atoms
 On any new screen or UI change:
 
 1. **Inventory** — list the UI pieces before writing a route.
-2. **Reuse** — search `app/components/` first. Do not duplicate a button, input, or card.
+2. **Reuse** — search `@mantine/core`, then `app/components/`. Do not invent Button, Title, Text, Anchor, Stack, Group, Card, Alert, Loader, or TextInput atoms.
 3. **Classify** — place each new piece at the lowest honest layer.
-4. **Build** — create missing atoms → molecules → organisms → template, then wire the page.
+4. **Build** — create missing atoms → molecules → organisms → template, then wire the page. Atoms that wrap Mantine stay thin (map props, render the Mantine component).
 5. **Check the whole** — compose them in the route. Verify the page, including the browser for visual work.
 6. **Extract on growth** — if a route or organism grows past one job, split it down a level.
 
@@ -79,7 +79,7 @@ Route files compose templates and organisms. They do not invent new atoms as inl
 
 **Do**
 
-- Search existing atoms/molecules/organisms before creating new ones
+- Search `@mantine/core` and existing atoms/molecules/organisms before creating new ones
 - Keep route modules thin: load data, pass props, render a template
 - Give components props instead of hard-coding feature copy inside atoms
 - Extract a molecule when the same atom cluster appears twice
@@ -90,14 +90,20 @@ Route files compose templates and organisms. They do not invent new atoms as inl
 - Implement a feature as one large JSX tree in a route module
 - Put fetch/loader/`useQuery` logic in atoms, molecules, or templates
 - Import a molecule from an atom, or a page from a template
-- Copy-paste a button or field instead of reusing the atom
+- Copy-paste a button or field instead of using Mantine or reusing the atom
+- Invent Button, Title, Text, or Stack atoms that duplicate `@mantine/core`
 - Argue the layer for long: pick the lower one and compose
 
 ## Good / bad
 
 ```tsx
-// Good — atom
-import styles from './Button.module.css';
+// Good — thin atom wrapping Mantine
+import { Button as MantineButton } from '@mantine/core';
+
+const variantMap = {
+  primary: 'filled',
+  secondary: 'default',
+} as const;
 
 type ButtonProps = {
   variant?: 'primary' | 'secondary';
@@ -106,17 +112,16 @@ type ButtonProps = {
 
 export function Button({ variant = 'secondary', children }: ButtonProps) {
   return (
-    <button type="button" className={styles.root} data-variant={variant}>
+    <MantineButton type="button" variant={variantMap[variant]}>
       {children}
-    </button>
+    </MantineButton>
   );
 }
 ```
 
 ```tsx
-// Good — molecule composing atoms
-import { Button } from '../atoms/Button';
-import { TextField } from '../atoms/TextField';
+// Good — molecule composing Mantine
+import { Button, TextInput } from '@mantine/core';
 import styles from './SearchField.module.css';
 
 type SearchFieldProps = {
@@ -140,12 +145,12 @@ export function SearchField({
         onSubmit();
       }}
     >
-      <TextField
+      <TextInput
         label={label}
         value={value}
-        onChange={onChange}
+        onChange={(event) => onChange(event.currentTarget.value)}
       />
-      <Button variant="primary">Search</Button>
+      <Button>Search</Button>
     </form>
   );
 }

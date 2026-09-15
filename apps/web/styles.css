@@ -1,5 +1,4 @@
-@layer reset, tokens, base, primitives;
+@layer reset, tokens, primitives;
 
 @import './styles/tokens.css';
 @import './styles/reset.css';
-@import './styles/base.css';

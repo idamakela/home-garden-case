@@ -1,8 +1,9 @@
 import { createRoutesStub } from 'react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import type { User } from '../../app/queries/users';
 import ProfilePage, { loader } from '../../app/routes/profile';
+import { renderWithProviders } from '../render-with-query';
 
 const user: User = {
   userId: 1,
@@ -45,7 +46,7 @@ test('renders users from the API loader', async () => {
     },
   ]);
 
-  render(<ReactRouterStub initialEntries={['/profile']} />);
+  renderWithProviders(<ReactRouterStub initialEntries={['/profile']} />);
 
   await waitFor(() => screen.findByText('Ada Lovelace'));
 });

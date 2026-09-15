@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./out-tsc/vitest",
+    "lib": ["DOM", "DOM.Iterable", "es2022"],
     "types": [
       "vitest/globals",
       "vitest/importMeta",
@@ -20,6 +21,7 @@
     "vite.config.mts",
     "vitest.config.ts",
     "vitest.config.mts",
+    "vitest.setup.ts",
     "src/**/*.test.ts",
     "src/**/*.spec.ts",
     "src/**/*.test.tsx",

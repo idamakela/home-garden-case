@@ -1,0 +1,48 @@
+---
+description: Prefer Mantine components and the forest theme when building or changing web UI.
+globs: apps/web/**/*.{tsx,jsx,css,module.css}
+alwaysApply: false
+---
+
+# Mantine components and theme
+
+The web app uses `@mantine/core` with the forest theme in `apps/web/app/theme.ts`. Fetch Mantine LLM docs before writing Mantine code: `https://mantine.dev/llms.txt`, then the matching page under `https://mantine.dev/llms/` (for example `core-button.md`). Do not invent props, styles APIs, or package names.
+
+## Prefer Mantine
+
+Before adding a custom atom or molecule, check `@mantine/core`. Use Button, Title, Text, Anchor, Stack, Group, Card, Alert, Loader, TextInput, and similar when they exist.
+
+Import Mantine directly, or keep a thin wrapper that only narrows props (like `atoms/Button`). Do not rebuild those controls in CSS Modules.
+
+The app template `AppShell` is the page skeleton. Mantine `AppShell` is a different layout primitive. Use it only when the header/navbar/aside API is needed.
+
+## Theme tokens
+
+Colors, spacing, and radius come from `theme.ts` and `--mantine-*` CSS variables. Semantic aliases in `styles/tokens.css` (`--color-text`, `--space-md`) wrap those variables. No raw hex, rgb, or oklch in components.
+
+```tsx
+// Good
+import { Button, Title } from '@mantine/core';
+
+export function EmptyGardens({ onRetry }: { onRetry: () => void }) {
+  return (
+    <>
+      <Title order={1}>Gardens</Title>
+      <Button onClick={onRetry}>Retry</Button>
+    </>
+  );
+}
+```
+
+```tsx
+// Bad — skip Mantine, hardcode color
+import styles from './Card.module.css';
+
+export function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={`card ${styles.root}`} style={{ color: '#228B22' }}>
+      {children}
+    </div>
+  );
+}
+```

@@ -6,14 +6,14 @@ alwaysApply: false
 
 # CSS Modules and styling
 
-Use CSS Modules for component styles. Do not add Tailwind, Sass, or CSS-in-JS. Prefer the bundler's built-in `*.module.css` support.
+Use CSS Modules for component styles. Do not add Tailwind, Sass, or CSS-in-JS. Prefer the bundler's built-in `*.module.css` support. `postcss-preset-mantine` is allowed (`rem()`, `@mixin`, `light-dark()`).
 
 ## Dependency direction
 
 Styles flow one way. Never reverse:
 
 ```
-tokens → reset/base → shared primitives → colocated component modules
+tokens → reset → shared primitives → colocated component modules
 ```
 
 Map SOLID onto that pipeline:
@@ -22,7 +22,7 @@ Map SOLID onto that pipeline:
 - **OCP** — extend with variants, `composes`, or new token values. Do not edit a shared primitive to satisfy one screen.
 - **LSP** — composed classes must be safe substitutes. Do not `composes` two classes from different files that set the same property (cross-file apply order is undefined).
 - **ISP** — export a small class API. No kitchen-sink class that every sibling depends on.
-- **DIP** — components depend on semantic custom properties (`--color-text`, `--space-md`), never raw palette values or another component's internal classes.
+- **DIP** — components depend on `--mantine-*` CSS variables or the semantic aliases in `styles/tokens.css` (`--color-text`, `--space-md`). Never raw palette values, hex/oklch, or another component's internal classes.
 
 Shared primitives compose **into** components. Components never compose from each other.
 
@@ -33,8 +33,8 @@ Describe files by role, not by a fixed app tree:
 | Role | Owns | Does not own |
 | --- | --- | --- |
 | Global entry | `@layer` order and `@import`s only | Component visuals |
-| Tokens | Palette vars and semantic aliases | Selectors for UI |
-| Reset / base | Box-sizing, `html`/`body`, focus, element defaults, fonts | Component class names |
+| Tokens | Semantic aliases of `--mantine-*` vars | Selectors for UI |
+| Reset | Box-sizing and document margin only | Body color/font (Mantine owns those) |
 | Primitives | Reusable layout or type classes, wrapped in `@layer` | Screen-specific look |
 | Component module | One component's visuals and internal layout | Global resets or tokens |
 
@@ -53,25 +53,22 @@ Colocate `Component.tsx` with `Component.module.css`. Put tokens, reset, and pri
 Declare a single order in the global entry:
 
 ```css
-@layer reset, tokens, base, primitives;
+@layer reset, tokens, primitives;
 ```
 
 Wrap shared styles in those layers. Leave colocated component modules **unlayered**. Unlayered rules beat layered ones at equal specificity, so a local module can override a primitive without `!important` or extra specificity.
 
 ## Tokens
 
-Two-tier values for color, space, and type.
-
-- Palette (never used in components): `--color-green-700`, `--space-8`
-- Semantic (what components use): `--color-text`, `--color-surface`, `--color-accent`, `--space-md`
+The forest palette lives in `apps/web/app/theme.ts`. Modules use `--mantine-*` or semantic aliases that wrap them.
 
 ```css
 @layer tokens {
   :root {
-    --color-green-700: oklch(40% 0.08 150);
-    --color-text: var(--color-green-700);
-    --space-8: 0.5rem;
-    --space-md: var(--space-8);
+    --color-text: var(--mantine-color-forest-9);
+    --color-surface: var(--mantine-color-forest-0);
+    --space-md: var(--mantine-spacing-xs);
+    --space-lg: var(--mantine-spacing-md);
   }
 }
 ```
@@ -101,25 +98,20 @@ No magic numbers for color, spacing, or type in modules. Use `var(--...)`.
 ```
 
 ```css
-/* Button.module.css */
+/* GardenList.module.css */
 .root {
-  composes: stack from '../styles/primitives.module.css';
-  padding: var(--space-md);
+  composes: stack from '../../../../styles/primitives.module.css';
+  margin: 0;
+}
+
+.title {
+  margin: 0;
   color: var(--color-text);
-  background: var(--color-surface);
 }
 
-.root[data-variant='primary'] {
-  background: var(--color-accent);
-  color: var(--color-surface);
-}
-
-.root[data-state='disabled'] {
-  opacity: 0.5;
-}
-
-.label {
-  font: inherit;
+.item {
+  color: var(--color-text);
+  padding-block: var(--space-md);
 }
 ```
 
@@ -136,38 +128,22 @@ No magic numbers for color, spacing, or type in modules. Use `var(--...)`.
 **Don't**
 
 - Dump global CSS in a `<style>` tag or `dangerouslySetInnerHTML`
-- Add Tailwind, Sass, or CSS-in-JS
+- Add Tailwind, Sass, or CSS-in-JS. `postcss-preset-mantine` is allowed.
 - Import another component's `.module.css` to style this one
 - Use unscoped global class names for components (`.button`, `.wrapper`)
-- Reach for palette vars or raw hex/rgb in a component module
+- Reach for a parallel palette or raw hex/rgb/oklch in a component module
 
 ## Good / bad
 
 ```tsx
 // Good
-import styles from './Button.module.css';
+import styles from './GardenList.module.css';
 
-type ButtonProps = {
-  variant?: 'primary' | 'secondary';
-  disabled?: boolean;
-  children: React.ReactNode;
-};
-
-export function Button({
-  variant = 'secondary',
-  disabled,
-  children,
-}: ButtonProps) {
+export function GardenList({ name }: { name: string }) {
   return (
-    <button
-      type="button"
-      className={styles.root}
-      data-variant={variant}
-      data-state={disabled ? 'disabled' : undefined}
-      disabled={disabled}
-    >
-      <span className={styles.label}>{children}</span>
-    </button>
+    <section className={styles.root}>
+      <h1 className={styles.title}>{name}</h1>
+    </section>
   );
 }
 ```
