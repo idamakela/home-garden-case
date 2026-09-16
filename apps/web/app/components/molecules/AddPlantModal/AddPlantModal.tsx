@@ -62,6 +62,10 @@ type AddPlantModalProps = {
   gardenName: string;
   showGardenId?: boolean;
   initialValues?: CreatePlant | null;
+  title?: string;
+  submitLabel?: string;
+  submitDisabled?: boolean;
+  zIndex?: number;
 };
 
 function emptyToOptionalNumber(value: string | number): number | null {
@@ -168,6 +172,10 @@ export function AddPlantModal({
   gardenName,
   showGardenId = false,
   initialValues = null,
+  title,
+  submitLabel = 'Add plant',
+  submitDisabled = false,
+  zIndex,
 }: AddPlantModalProps) {
   const [values, setValues] = useState<PlantFormValues>(emptyFormValues);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -183,6 +191,11 @@ export function AddPlantModal({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (submitDisabled) {
+      return;
+    }
+
     const parsed = createPlantSchema.safeParse(toCreatePlantInput(values, gardenId));
 
     if (!parsed.success) {
@@ -195,7 +208,12 @@ export function AddPlantModal({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title={modalTitle(gardenName, showGardenId)}>
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={title ?? modalTitle(gardenName, showGardenId)}
+      zIndex={zIndex}
+    >
       <form onSubmit={submit}>
         <Stack>
           {showGardenId ? (
@@ -278,7 +296,9 @@ export function AddPlantModal({
             <Button type="button" variant="default" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">Add plant</Button>
+            <Button type="submit" disabled={submitDisabled}>
+              {submitLabel}
+            </Button>
           </ModalActions>
         </Stack>
       </form>

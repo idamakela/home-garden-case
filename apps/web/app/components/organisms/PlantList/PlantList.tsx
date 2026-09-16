@@ -1,4 +1,4 @@
-import { Table, Text } from '@mantine/core';
+import { Table, Text, UnstyledButton } from '@mantine/core';
 import styles from './PlantList.module.css';
 
 export type PlantListItem = {
@@ -14,9 +14,36 @@ export type PlantListItem = {
 
 type PlantListProps = {
   plants: PlantListItem[];
+  onOpenPlant?: (id: string) => void;
 };
 
-export function PlantList({ plants }: PlantListProps) {
+function rowClassName(plant: PlantListItem, clickable: boolean) {
+  const classNames = [];
+
+  if (clickable) {
+    classNames.push(styles.clickable);
+  }
+
+  if (plant.pending) {
+    classNames.push(styles.pending);
+  }
+
+  return classNames.length > 0 ? classNames.join(' ') : undefined;
+}
+
+function openPlantFromRow(event: { currentTarget: HTMLElement; target: EventTarget }) {
+  const target = event.target;
+  if (!(target instanceof Element) || target.closest('button')) {
+    return;
+  }
+
+  const button = event.currentTarget.querySelector('button');
+  if (button instanceof HTMLElement) {
+    button.click();
+  }
+}
+
+export function PlantList({ plants, onOpenPlant }: PlantListProps) {
   return (
     <section className={styles.root}>
       {plants.length === 0 ? (
@@ -34,24 +61,41 @@ export function PlantList({ plants }: PlantListProps) {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {plants.map((plant) => (
-              <Table.Tr
-                key={plant.id}
-                className={plant.pending ? styles.pending : undefined}
-                aria-busy={plant.pending || undefined}
-              >
-                <Table.Td className={styles.capitalized}>{plant.plantName}</Table.Td>
-                <Table.Td>{plant.surfaceAreaRequired}</Table.Td>
-                <Table.Td>{plant.idealHumidityLevel}</Table.Td>
-                <Table.Td className={`${styles.desktopOnly} ${styles.capitalized}`}>
-                  {plant.species}
-                </Table.Td>
-                <Table.Td className={`${styles.desktopOnly} ${styles.capitalized}`}>
-                  {plant.plantType}
-                </Table.Td>
-                <Table.Td className={styles.desktopOnly}>{plant.plantationDate}</Table.Td>
-              </Table.Tr>
-            ))}
+            {plants.map((plant) => {
+              const clickable = onOpenPlant != null && !plant.pending;
+
+              return (
+                <Table.Tr
+                  key={plant.id}
+                  className={rowClassName(plant, clickable)}
+                  aria-busy={plant.pending || undefined}
+                  onClick={clickable ? openPlantFromRow : undefined}
+                >
+                  <Table.Td className={styles.capitalized}>
+                    {clickable ? (
+                      <UnstyledButton
+                        type="button"
+                        className={styles.link}
+                        onClick={() => onOpenPlant(plant.id)}
+                      >
+                        {plant.plantName}
+                      </UnstyledButton>
+                    ) : (
+                      plant.plantName
+                    )}
+                  </Table.Td>
+                  <Table.Td>{plant.surfaceAreaRequired}</Table.Td>
+                  <Table.Td>{plant.idealHumidityLevel}</Table.Td>
+                  <Table.Td className={`${styles.desktopOnly} ${styles.capitalized}`}>
+                    {plant.species}
+                  </Table.Td>
+                  <Table.Td className={`${styles.desktopOnly} ${styles.capitalized}`}>
+                    {plant.plantType}
+                  </Table.Td>
+                  <Table.Td className={styles.desktopOnly}>{plant.plantationDate}</Table.Td>
+                </Table.Tr>
+              );
+            })}
           </Table.Tbody>
         </Table>
       )}

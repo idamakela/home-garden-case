@@ -55,6 +55,8 @@ function stubGardensApi(handlers: {
   delete?: (gardenId: number) => Promise<Response> | Response;
   plantsByGarden?: (gardenId: number) => Promise<Response> | Response;
   createPlant?: (body: CreatePlant) => Promise<Response> | Response;
+  updatePlant?: (plantId: number) => Promise<Response> | Response;
+  deletePlant?: (plantId: number) => Promise<Response> | Response;
 }) {
   vi.stubGlobal(
     'fetch',
@@ -62,6 +64,7 @@ function stubGardensApi(handlers: {
       const url = String(input);
       const method = (init?.method ?? 'GET').toUpperCase();
       const plantsMatch = url.match(/\/plants\/garden\/(\d+)$/);
+      const plantByIdMatch = url.match(/\/plants\/(\d+)$/);
       const gardenMatch = url.match(/\/gardens\/(\d+)$/);
 
       if (plantsMatch && method === 'GET') {
@@ -75,6 +78,20 @@ function stubGardensApi(handlers: {
         const body = init?.body ? (JSON.parse(String(init.body)) as CreatePlant) : undefined;
         return (
           handlers.createPlant?.(body as CreatePlant) ?? new Response('Not found', { status: 404 })
+        );
+      }
+
+      if (plantByIdMatch && method === 'PUT') {
+        return (
+          handlers.updatePlant?.(Number(plantByIdMatch[1])) ??
+          new Response('Not found', { status: 404 })
+        );
+      }
+
+      if (plantByIdMatch && method === 'DELETE') {
+        return (
+          handlers.deletePlant?.(Number(plantByIdMatch[1])) ??
+          new Response('Not found', { status: 404 })
         );
       }
 
@@ -199,6 +216,18 @@ function fillGardenForm(
 async function openAddPlantModal() {
   fireEvent.click(screen.getByRole('button', { name: 'Add plant' }));
   return screen.findByRole('dialog');
+}
+
+async function openPlantDetails(name = 'Tomato') {
+  fireEvent.click(await screen.findByRole('button', { name }));
+  return screen.findByRole('dialog', { name });
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
 }
 
 function fillPlantForm(
@@ -1252,4 +1281,71 @@ test('user is told why a plant was not added and can restore the form', async ()
     'value',
     '55',
   );
+});
+
+test('user can see plant details', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+  });
+
+  renderGardensPage('/gardens/1');
+  const dialog = await openPlantDetails();
+
+  expect(within(dialog).getByRole('heading', { name: 'Tomato' })).toBeTruthy();
+  expect(within(dialog).getByRole('button', { name: 'Update plant' })).toBeTruthy();
+  expect(within(dialog).getByRole('button', { name: 'Delete plant' })).toBeTruthy();
+  expect(within(dialog).getAllByText(formatDateTime(plant.createdAt)).length).toBeGreaterThan(0);
+  expect(within(dialog).getByText(plant.species)).toBeTruthy();
+});
+
+test('user can start updating a plant', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+    updatePlant: () => {
+      throw new Error('PUT /plants/:plantId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Update plant' }));
+
+  const updateDialog = await screen.findByRole('dialog', { name: 'Update plant' });
+  expect(within(updateDialog).getByLabelText(/Plant name/)).toHaveProperty('value', 'Tomato');
+  expect(within(updateDialog).getByRole('button', { name: 'Update plant' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+
+  fireEvent.click(within(updateDialog).getByRole('button', { name: 'Update plant' }));
+});
+
+test('user can confirm they want to delete a plant', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    deletePlant: () => {
+      throw new Error('DELETE /plants/:plantId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Delete plant' }));
+
+  const confirm = await screen.findByRole('dialog', {
+    name: 'Are you sure you want to delete this plant?',
+  });
+  expect(within(confirm).getByText('This action is irreversible.')).toBeTruthy();
+
+  fireEvent.click(within(confirm).getByRole('button', { name: 'Yes, delete' }));
+
+  expect(screen.queryByRole('dialog', { name: 'Are you sure you want to delete this plant?' })).toBeNull();
+  expect(screen.queryByRole('dialog', { name: 'Tomato' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Tomato' })).toBeTruthy();
 });

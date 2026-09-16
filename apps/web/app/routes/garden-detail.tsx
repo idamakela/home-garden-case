@@ -7,8 +7,10 @@ import { AddGardenModal } from '../components/molecules/AddGardenModal/AddGarden
 import { AddPlantModal } from '../components/molecules/AddPlantModal/AddPlantModal';
 import { BackLink } from '../components/molecules/BackLink/BackLink';
 import { DeleteGardenModal } from '../components/molecules/DeleteGardenModal/DeleteGardenModal';
+import { DeletePlantModal } from '../components/molecules/DeletePlantModal/DeletePlantModal';
 import { ErrorAlert } from '../components/molecules/ErrorAlert/ErrorAlert';
 import { GardenRemovedModal } from '../components/molecules/GardenRemovedModal/GardenRemovedModal';
+import { PlantDetailModal } from '../components/molecules/PlantDetailModal/PlantDetailModal';
 import { PlantList } from '../components/organisms/PlantList/PlantList';
 import { PlantListSkeleton } from '../components/organisms/PlantList/PlantListSkeleton';
 import { GardenDetail } from '../components/templates/GardenDetail/GardenDetail';
@@ -23,7 +25,7 @@ import { useDeleteGarden } from '../queries/hooks/useDeleteGarden';
 import { useGardens } from '../queries/hooks/useGardens';
 import { usePlantsByGarden } from '../queries/hooks/usePlantsByGarden';
 import { useUpdateGarden } from '../queries/hooks/useUpdateGarden';
-import { type CreatePlant } from '../queries/plants';
+import { type CreatePlant, type Plant } from '../queries/plants';
 
 export const meta: MetaFunction = () => [{ title: 'Garden · Home Garden' }];
 
@@ -75,6 +77,30 @@ function gardenFields(garden: Garden) {
   };
 }
 
+function plantFields(plant: Plant) {
+  return {
+    surfaceAreaRequired: String(plant.surfaceAreaRequired),
+    idealHumidityLevel: String(plant.idealHumidityLevel),
+    species: plant.species,
+    plantType: plant.plantType,
+    plantationDate: formatDateTime(plant.plantationDate),
+    created: formatDateTime(plant.createdAt),
+    updated: formatDateTime(plant.updatedAt),
+  };
+}
+
+function toCreatePlant(plant: Plant): CreatePlant {
+  return {
+    plantName: plant.plantName,
+    species: plant.species,
+    plantType: plant.plantType,
+    plantationDate: plant.plantationDate,
+    surfaceAreaRequired: plant.surfaceAreaRequired,
+    idealHumidityLevel: plant.idealHumidityLevel,
+    gardenId: plant.gardenId,
+  };
+}
+
 function toUpdateGarden(garden: Garden): UpdateGarden {
   return {
     gardenName: garden.gardenName,
@@ -94,6 +120,9 @@ export default function GardenDetailPage() {
   const [updateOpened, updateModal] = useDisclosure(false);
   const [deleteOpened, deleteModal] = useDisclosure(false);
   const [addPlantOpened, addPlantModal] = useDisclosure(false);
+  const [updatePlantOpened, updatePlantModal] = useDisclosure(false);
+  const [deletePlantOpened, deletePlantModal] = useDisclosure(false);
+  const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
   const [restoreValues, setRestoreValues] = useState<UpdateGarden | null>(null);
   const [pendingPlantAdditions, setPendingPlantAdditions] = useState<PendingPlantAddition[]>([]);
@@ -160,6 +189,29 @@ export default function GardenDetailPage() {
   function closeAddPlantModal() {
     addPlantModal.close();
     setRestorePlantValues(null);
+  }
+
+  function openPlant(id: string) {
+    const plant = plants.data?.find((item) => String(item.plantId) === id);
+
+    if (!plant) {
+      return;
+    }
+
+    setSelectedPlant(plant);
+    updatePlantModal.close();
+    deletePlantModal.close();
+  }
+
+  function closePlantDetail() {
+    setSelectedPlant(null);
+    updatePlantModal.close();
+    deletePlantModal.close();
+  }
+
+  function confirmDeletePlant() {
+    deletePlantModal.close();
+    setSelectedPlant(null);
   }
 
   function submitUpdate(body: UpdateGarden) {
@@ -339,7 +391,7 @@ export default function GardenDetailPage() {
         })),
       ];
 
-      plantsContent = <PlantList plants={plantRows} />;
+      plantsContent = <PlantList plants={plantRows} onOpenPlant={openPlant} />;
     }
 
     content = (
@@ -381,10 +433,48 @@ export default function GardenDetailPage() {
           gardenName={garden.gardenName}
           initialValues={restorePlantValues}
         />
+        <AddPlantModal
+          opened={updatePlantOpened}
+          onClose={updatePlantModal.close}
+          onSubmit={() => undefined}
+          gardenId={garden.gardenId}
+          gardenName={garden.gardenName}
+          initialValues={selectedPlant ? toCreatePlant(selectedPlant) : null}
+          title="Update plant"
+          submitLabel="Update plant"
+          submitDisabled
+          zIndex={400}
+        />
+        {selectedPlant ? (
+          <PlantDetailModal
+            opened
+            onClose={closePlantDetail}
+            plantName={selectedPlant.plantName}
+            closeOnEscape={!updatePlantOpened && !deletePlantOpened}
+            closeOnClickOutside={!updatePlantOpened && !deletePlantOpened}
+            actions={
+              <Group gap="sm">
+                <Button type="button" onClick={updatePlantModal.open}>
+                  Update plant
+                </Button>
+                <Button type="button" variant="default" onClick={deletePlantModal.open}>
+                  Delete plant
+                </Button>
+              </Group>
+            }
+            {...plantFields(selectedPlant)}
+          />
+        ) : null}
         <DeleteGardenModal
           opened={deleteOpened}
           onClose={deleteModal.close}
           onConfirm={confirmDelete}
+        />
+        <DeletePlantModal
+          opened={deletePlantOpened}
+          onClose={deletePlantModal.close}
+          onConfirm={confirmDeletePlant}
+          zIndex={400}
         />
         <GardenRemovedModal
           opened={removedDialog.opened}
