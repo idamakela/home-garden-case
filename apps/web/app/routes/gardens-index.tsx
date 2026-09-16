@@ -1,7 +1,6 @@
 import { Button, Notification, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { AddGardenModal } from '../components/molecules/AddGardenModal/AddGardenModal';
 import { ErrorAlert } from '../components/molecules/ErrorAlert/ErrorAlert';
@@ -9,15 +8,9 @@ import { SectionHeader } from '../components/molecules/SectionHeader/SectionHead
 import { GardenList } from '../components/organisms/GardenList/GardenList';
 import { GardenListSkeleton } from '../components/organisms/GardenList/GardenListSkeleton';
 import { gardensCreateCopy, gardensLoadCopy } from '../lib/garden-copy';
-import {
-  gardenKeys,
-  gardensQuery,
-  INCOMING_GARDEN_HIGHLIGHT_MS,
-  postGarden,
-  upsertGardenInList,
-  type CreateGarden,
-  type Garden,
-} from '../queries/gardens';
+import { INCOMING_GARDEN_HIGHLIGHT_MS, type CreateGarden, type Garden } from '../queries/gardens';
+import { useCreateGarden } from '../queries/hooks/useCreateGarden';
+import { useGardens } from '../queries/hooks/useGardens';
 
 type PendingAddition = {
   clientId: string;
@@ -78,54 +71,12 @@ function useIncomingGardenIds(gardens: Garden[] | undefined) {
 }
 
 export default function GardensIndexPage() {
-  const queryClient = useQueryClient();
   const [opened, { open, close }] = useDisclosure(false);
   const [pendingAdditions, setPendingAdditions] = useState<PendingAddition[]>([]);
   const [restoreValues, setRestoreValues] = useState<CreateGarden | null>(null);
-  const { data, isPending, isError, error, refetch } = useQuery(gardensQuery());
+  const { data, isPending, isError, error, refetch } = useGardens();
   const { incomingIds, acknowledge } = useIncomingGardenIds(data);
-  const createGarden = useMutation({
-    mutationFn: ({ body }: PendingAddition) => postGarden(body),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: gardenKeys.list() });
-    },
-    onSuccess: (garden, { clientId }) => {
-      acknowledge(garden.gardenId);
-      setPendingAdditions((current) => dropPending(current, clientId));
-      queryClient.setQueryData<Garden[]>(gardenKeys.list(), (current) =>
-        upsertGardenInList(current, garden),
-      );
-    },
-    onError: (mutationError, { clientId, body }) => {
-      setPendingAdditions((current) => dropPending(current, clientId));
-      const copy = gardensCreateCopy(mutationError);
-      const notificationId = crypto.randomUUID();
-
-      notifications.show({
-        id: notificationId,
-        autoClose: false,
-        color: 'red',
-        title: copy.title,
-        message: copy.message,
-        renderNotification: () => (
-          <UnstyledButton
-            type="button"
-            display="block"
-            w="100%"
-            onClick={() => {
-              notifications.hide(notificationId);
-              setRestoreValues(body);
-              open();
-            }}
-          >
-            <Notification color="red" title={copy.title} withCloseButton={false} withBorder>
-              {copy.message}
-            </Notification>
-          </UnstyledButton>
-        ),
-      });
-    },
-  });
+  const createGarden = useCreateGarden();
 
   function openAddGarden() {
     setRestoreValues(null);
@@ -142,7 +93,41 @@ export default function GardensIndexPage() {
     setPendingAdditions((current) => [...current, { clientId, body }]);
     setRestoreValues(null);
     close();
-    createGarden.mutate({ clientId, body });
+    createGarden.mutate(body, {
+      onSuccess: (garden) => {
+        acknowledge(garden.gardenId);
+        setPendingAdditions((current) => dropPending(current, clientId));
+      },
+      onError: (mutationError) => {
+        setPendingAdditions((current) => dropPending(current, clientId));
+        const copy = gardensCreateCopy(mutationError);
+        const notificationId = crypto.randomUUID();
+
+        notifications.show({
+          id: notificationId,
+          autoClose: false,
+          color: 'red',
+          title: copy.title,
+          message: copy.message,
+          renderNotification: () => (
+            <UnstyledButton
+              type="button"
+              display="block"
+              w="100%"
+              onClick={() => {
+                notifications.hide(notificationId);
+                setRestoreValues(body);
+                open();
+              }}
+            >
+              <Notification color="red" title={copy.title} withCloseButton={false} withBorder>
+                {copy.message}
+              </Notification>
+            </UnstyledButton>
+          ),
+        });
+      },
+    });
   }
 
   const gardenRows = [

@@ -1,7 +1,6 @@
 import { Button, Group, Notification, Stack, Text, Title, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useParams, type MetaFunction } from 'react-router';
 import { AddGardenModal } from '../components/molecules/AddGardenModal/AddGardenModal';
@@ -14,15 +13,10 @@ import { GardenDetailSkeleton } from '../components/templates/GardenDetail/Garde
 import { gardensLoadCopy, gardensUpdateCopy } from '../lib/garden-copy';
 import { parseGardenId } from '../lib/garden-id';
 import { plantsLoadCopy } from '../lib/plant-copy';
-import {
-  gardenKeys,
-  gardensQuery,
-  putGarden,
-  upsertGardenInList,
-  type Garden,
-  type UpdateGarden,
-} from '../queries/gardens';
-import { plantsByGardenQuery } from '../queries/plants';
+import { type Garden, type UpdateGarden } from '../queries/gardens';
+import { useGardens } from '../queries/hooks/useGardens';
+import { usePlantsByGarden } from '../queries/hooks/usePlantsByGarden';
+import { useUpdateGarden } from '../queries/hooks/useUpdateGarden';
 
 export const meta: MetaFunction = () => [{ title: 'Garden · Home Garden' }];
 
@@ -76,16 +70,12 @@ function toUpdateGarden(garden: Garden): UpdateGarden {
 }
 
 export default function GardenDetailPage() {
-  const queryClient = useQueryClient();
   const { gardenId: gardenIdParam } = useParams();
   const gardenId = parseGardenId(gardenIdParam);
   const [opened, { open, close }] = useDisclosure(false);
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
   const [restoreValues, setRestoreValues] = useState<UpdateGarden | null>(null);
-  const gardens = useQuery({
-    ...gardensQuery(),
-    refetchInterval: false,
-  });
+  const gardens = useGardens({ refetchInterval: false });
   const cachedGarden =
     gardenId == null ? undefined : gardens.data?.find((item) => item.gardenId === gardenId);
   const garden = cachedGarden
@@ -93,64 +83,8 @@ export default function GardenDetailPage() {
       ? { ...cachedGarden, ...pendingUpdate.body }
       : cachedGarden
     : undefined;
-  const plants = useQuery({
-    ...plantsByGardenQuery(gardenId ?? 0),
-    enabled: gardenId != null,
-  });
-  const updateGarden = useMutation({
-    mutationFn: ({ gardenId: id, body }: PendingUpdate) => putGarden(id, body),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: gardenKeys.list() });
-    },
-    onSuccess: (updated, { clientId }) => {
-      setPendingUpdate((current) => (current?.clientId === clientId ? null : current));
-      queryClient.setQueryData<Garden[]>(gardenKeys.list(), (current) =>
-        upsertGardenInList(current, updated),
-      );
-    },
-    onError: (mutationError, { clientId, body }) => {
-      let shouldNotify = false;
-      setPendingUpdate((current) => {
-        if (current?.clientId !== clientId) {
-          return current;
-        }
-
-        shouldNotify = true;
-        return null;
-      });
-
-      if (!shouldNotify) {
-        return;
-      }
-
-      const copy = gardensUpdateCopy(mutationError);
-      const notificationId = crypto.randomUUID();
-
-      notifications.show({
-        id: notificationId,
-        autoClose: false,
-        color: 'red',
-        title: copy.title,
-        message: copy.message,
-        renderNotification: () => (
-          <UnstyledButton
-            type="button"
-            display="block"
-            w="100%"
-            onClick={() => {
-              notifications.hide(notificationId);
-              setRestoreValues(body);
-              open();
-            }}
-          >
-            <Notification color="red" title={copy.title} withCloseButton={false} withBorder>
-              {copy.message}
-            </Notification>
-          </UnstyledButton>
-        ),
-      });
-    },
-  });
+  const plants = usePlantsByGarden(gardenId ?? null);
+  const updateGarden = useUpdateGarden();
 
   function openUpdate() {
     setRestoreValues(null);
@@ -171,7 +105,56 @@ export default function GardenDetailPage() {
     setPendingUpdate({ clientId, gardenId, body });
     setRestoreValues(null);
     close();
-    updateGarden.mutate({ clientId, gardenId, body });
+    updateGarden.mutate(
+      { gardenId, body },
+      {
+        onSuccess: () => {
+          setPendingUpdate((current) => (current?.clientId === clientId ? null : current));
+        },
+        onError: (mutationError) => {
+          let shouldNotify = false;
+          setPendingUpdate((current) => {
+            if (current?.clientId !== clientId) {
+              return current;
+            }
+
+            shouldNotify = true;
+            return null;
+          });
+
+          if (!shouldNotify) {
+            return;
+          }
+
+          const copy = gardensUpdateCopy(mutationError);
+          const notificationId = crypto.randomUUID();
+
+          notifications.show({
+            id: notificationId,
+            autoClose: false,
+            color: 'red',
+            title: copy.title,
+            message: copy.message,
+            renderNotification: () => (
+              <UnstyledButton
+                type="button"
+                display="block"
+                w="100%"
+                onClick={() => {
+                  notifications.hide(notificationId);
+                  setRestoreValues(body);
+                  open();
+                }}
+              >
+                <Notification color="red" title={copy.title} withCloseButton={false} withBorder>
+                  {copy.message}
+                </Notification>
+              </UnstyledButton>
+            ),
+          });
+        },
+      },
+    );
   }
 
   let content;
@@ -230,7 +213,7 @@ export default function GardenDetailPage() {
           plants={plantsContent}
           pending={pendingUpdate != null}
           actions={
-            <Group gap="sm" wrap="nowrap">
+            <Group gap="sm">
               <Button type="button" onClick={openUpdate}>
                 Update garden
               </Button>
