@@ -1,11 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  gardenKeys,
-  putGarden,
-  upsertGardenInList,
-  type Garden,
-  type UpdateGarden,
-} from '../gardens';
+import { putGarden, upsertGardenInList, type Garden, type UpdateGarden } from '../gardens';
+import { gardenMutationKeys, gardenQueryKeys } from '../gardens.const';
 
 type UpdateGardenVariables = {
   gardenId: number;
@@ -16,12 +11,13 @@ export function useUpdateGarden() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    mutationKey: gardenMutationKeys.updates(),
     mutationFn: ({ gardenId, body }: UpdateGardenVariables) => putGarden(gardenId, body),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: gardenKeys.list() });
+      await queryClient.cancelQueries({ queryKey: gardenQueryKeys.list() });
     },
     onSuccess: (garden) => {
-      queryClient.setQueryData<Garden[]>(gardenKeys.list(), (current) =>
+      queryClient.setQueryData<Garden[]>(gardenQueryKeys.list(), (current) =>
         upsertGardenInList(current, garden),
       );
     },

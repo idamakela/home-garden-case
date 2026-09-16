@@ -21,7 +21,7 @@ Document page (/gardens): loader query + dehydrate → HydrationBoundary → cus
 MPA page (/my-garden): static stub. No loader or query until the feature is implemented
 ```
 
-- Put keys, `queryOptions`, and mutation fns in `app/queries/*`.
+- Put `queryOptions` and mutation fns in `app/queries/*`. Query and mutation keys live in the feature `*.const.ts` (`gardens.const.ts`), not a global queries const and not inline in hooks.
 - Call `useQuery` / `useMutation` only in **custom hooks** under `app/queries/hooks/`. Document routes also own the matching `loader`.
 - Pages call those hooks and pass results into organisms. Never `useQuery` in routes or in atoms, molecules, or templates.
 - Use `api()` from `app/lib/api.ts` only. Name wrappers `<httpMethod><Resource>` (`getGardens`, `postGarden`). `queryOptions` factories stay `*Query`.
@@ -36,7 +36,7 @@ List queries may set `refetchInterval` for quiet freshness (`GARDENS_REFETCH_INT
 
 Dehydrate **success and error** queries. Do not redact errors. Serialize `ApiError` as `{ name, message, status }` so loader data round-trips.
 
-Create garden: `cancelQueries` the list in `onMutate`, then `setQueryData` on `gardenKeys.list()` with `upsertGardenInList` (replace by `gardenId`, otherwise append). Do not `invalidateQueries` the list just to refresh — that refetches the slow API and fights SSR plus optimistic rows.
+Create garden: `cancelQueries` the list in `onMutate`, then `setQueryData` on `gardenQueryKeys.list()` with `upsertGardenInList` (replace by `gardenId`, otherwise append). Do not `invalidateQueries` the list just to refresh — that refetches the slow API and fights SSR plus optimistic rows.
 
 Use one list call for a list. Start independent requests together when the id is already in the URL (detail hook for plants enabled by URL id; loader may prefetch plants in parallel with the garden list). Do not fetch per row, waterfall `queryFn`s, or set `staleTime: 0`.
 

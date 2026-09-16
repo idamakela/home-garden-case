@@ -1,5 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { userQueryKeys } from './users.const';
 
 export type User = {
   userId: number;
@@ -19,15 +20,6 @@ export type CreateUser = {
 };
 
 export type UpdateUser = CreateUser;
-
-export const userKeys = {
-  all: ['users'] as const,
-  lists: () => [...userKeys.all, 'list'] as const,
-  list: () => [...userKeys.lists()] as const,
-  details: () => [...userKeys.all, 'detail'] as const,
-  detail: (userId: number) => [...userKeys.details(), userId] as const,
-  email: (emailAddress: string) => [...userKeys.all, 'email', emailAddress] as const,
-};
 
 export function getUsers() {
   return api<User[]>('/users');
@@ -61,18 +53,18 @@ export function deleteUser(userId: number) {
 
 export const usersQuery = () =>
   queryOptions({
-    queryKey: userKeys.list(),
+    queryKey: userQueryKeys.list(),
     queryFn: getUsers,
   });
 
 export const userQuery = (userId: number) =>
   queryOptions({
-    queryKey: userKeys.detail(userId),
+    queryKey: userQueryKeys.detail(userId),
     queryFn: () => getUserById(userId),
   });
 
 export const userByEmailQuery = (emailAddress: string) =>
   queryOptions({
-    queryKey: userKeys.email(emailAddress),
+    queryKey: userQueryKeys.email(emailAddress),
     queryFn: () => getUserByEmail(emailAddress),
   });

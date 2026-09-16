@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import { z } from 'zod/v4';
 import { api } from '../lib/api';
+import { gardenQueryKeys } from './gardens.const';
 
 export const createGardenSchema = z
   .object({
@@ -80,14 +81,6 @@ export type Garden = {
   updatedAt: string;
 };
 
-export const gardenKeys = {
-  all: ['gardens'] as const,
-  lists: () => [...gardenKeys.all, 'list'] as const,
-  list: () => [...gardenKeys.lists()] as const,
-  details: () => [...gardenKeys.all, 'detail'] as const,
-  detail: (gardenId: number) => [...gardenKeys.details(), gardenId] as const,
-};
-
 export function upsertGardenInList(current: Garden[] | undefined, garden: Garden): Garden[] {
   if (!current || current.length === 0) {
     return [garden];
@@ -137,7 +130,7 @@ export const INCOMING_GARDEN_HIGHLIGHT_MS = 2_000;
 
 export const gardensQuery = () =>
   queryOptions({
-    queryKey: gardenKeys.list(),
+    queryKey: gardenQueryKeys.list(),
     queryFn: getGardens,
     refetchInterval: import.meta.env.MODE === 'test' ? false : GARDENS_REFETCH_INTERVAL_MS,
     refetchIntervalInBackground: false,
@@ -145,6 +138,6 @@ export const gardensQuery = () =>
 
 export const gardenQuery = (gardenId: number) =>
   queryOptions({
-    queryKey: gardenKeys.detail(gardenId),
+    queryKey: gardenQueryKeys.detail(gardenId),
     queryFn: () => getGardenById(gardenId),
   });

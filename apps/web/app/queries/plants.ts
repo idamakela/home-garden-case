@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import { z } from 'zod/v4';
 import { api } from '../lib/api';
+import { plantQueryKeys } from './plants.const';
 
 export const createPlantSchema = z.object({
   plantName: z.string().min(1, 'Plant name is required').trim(),
@@ -35,13 +36,6 @@ export type Plant = {
   gardenId: number;
   createdAt: string;
   updatedAt: string;
-};
-
-export const plantKeys = {
-  all: ['plants'] as const,
-  details: () => [...plantKeys.all, 'detail'] as const,
-  detail: (plantId: number) => [...plantKeys.details(), plantId] as const,
-  byGarden: (gardenId: number) => [...plantKeys.all, 'garden', gardenId] as const,
 };
 
 export function upsertPlantInList(current: Plant[] | undefined, plant: Plant): Plant[] {
@@ -90,12 +84,12 @@ export function deletePlant(plantId: number) {
 
 export const plantQuery = (plantId: number) =>
   queryOptions({
-    queryKey: plantKeys.detail(plantId),
+    queryKey: plantQueryKeys.detail(plantId),
     queryFn: () => getPlantById(plantId),
   });
 
 export const plantsByGardenQuery = (gardenId: number) =>
   queryOptions({
-    queryKey: plantKeys.byGarden(gardenId),
+    queryKey: plantQueryKeys.byGarden(gardenId),
     queryFn: () => getPlantsByGardenId(gardenId),
   });

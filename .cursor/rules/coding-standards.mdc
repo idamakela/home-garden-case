@@ -19,7 +19,7 @@ Structure types, functions, and modules so each has one job. Formatting is Prett
 
 ## SOLID
 
-- **SRP** — a page wires hook results and a template; a query hook owns `useQuery` / `useMutation`; a query module owns keys and `queryOptions`; a document route owns the `loader` prefetch; a component renders props. Do not fetch inside an atom.
+- **SRP** — a page wires hook results and a template; a query hook owns `useQuery` / `useMutation`; the feature `*.const.ts` owns query and mutation keys; a query module owns `queryOptions` and `api()` wrappers; a document route owns the `loader` prefetch; a component renders props. Do not fetch inside an atom.
 - **OCP** — extend with a new query, component, or route. Do not grow one helper into a god module.
 - **LSP** — subtypes and wrappers must be safe substitutes. No extra required setup.
 - **ISP** — React props list only what the component uses. Function args stay small; more than two: group in a typed object.

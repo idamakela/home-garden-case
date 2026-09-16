@@ -36,7 +36,7 @@ Name tests as capabilities: `user can see gardens`, `user can add a garden`.
 
 ## Unit tests (safeguards)
 
-Add a unit test only for non-trivial logic a feature test would bury: Zod schemas that gate a mutation, extracted error-status → copy mappers, query-key invariants (plants scoped by `gardenId`).
+Add a unit test only for non-trivial logic a feature test would bury: Zod schemas that gate a mutation, extracted error-status → copy mappers, query-key invariants (`plantQueryKeys.byGarden` from `plants.const.ts` scoped by `gardenId`).
 
 Do not unit-test presentational components, `api()` plumbing, or React Query wiring the integration test already exercises.
 

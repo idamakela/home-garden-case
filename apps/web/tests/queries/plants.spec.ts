@@ -1,10 +1,10 @@
 import {
   createPlantSchema,
-  plantKeys,
   removePlantFromList,
   upsertPlantInList,
   type Plant,
 } from '../../app/queries/plants';
+import { plantQueryKeys } from '../../app/queries/plants.const';
 
 const validCreatePlant = {
   plantName: 'Basil',
@@ -16,9 +16,9 @@ const validCreatePlant = {
   gardenId: 1,
 };
 
-test('plantKeys.byGarden is scoped by gardenId', () => {
-  expect(plantKeys.byGarden(1)).toEqual(['plants', 'garden', 1]);
-  expect(plantKeys.byGarden(1)).not.toEqual(plantKeys.byGarden(2));
+test('plantQueryKeys.byGarden is scoped by gardenId', () => {
+  expect(plantQueryKeys.byGarden(1)).toEqual(['plants', 'garden', 1]);
+  expect(plantQueryKeys.byGarden(1)).not.toEqual(plantQueryKeys.byGarden(2));
 });
 
 test('createPlantSchema requires a plant name', () => {

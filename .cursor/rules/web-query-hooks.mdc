@@ -13,9 +13,13 @@ alwaysApply: false
 
 Call `useQuery`, `useMutation`, `useInfiniteQuery`, and `useSuspenseQuery` only in custom hooks under `apps/web/app/queries/hooks/`. One exported hook per file; the filename matches the hook (`useGardens.ts` exports `useGardens`).
 
-Keep keys, `queryOptions`, and `api()` wrappers in `app/queries/*`. Hooks wrap those factories. Loaders may still `queryClient.query(*Query())` — that is not a React hook.
+Keep `queryOptions` and `api()` wrappers in `app/queries/*`. Query and mutation keys live in the feature `*.const.ts` next to that module (`gardens.const.ts`). Hooks wrap those factories. Loaders may still `queryClient.query(*Query())` — that is not a React hook.
 
 Pages call the custom hooks and pass results into organisms. Never import TanStack Query data hooks in routes or `app/components/`. `useQueryClient` used for cache writes lives in the mutation hook.
+
+## Keys
+
+Same factory format for both trees: `all`, plural collection, singular entry, `as const` spreads. `useQuery` / `queryOptions` take `queryKey` from `*QueryKeys` only. `useMutation` takes `mutationKey` from `*MutationKeys` only. Cache writes (`setQueryData`, `cancelQueries`) still use query keys. Do not inline key arrays, mix the trees, or put every feature in one global const.
 
 ## Agent do / don't
 
@@ -24,6 +28,7 @@ Pages call the custom hooks and pass results into organisms. Never import TanSta
 - Put each hook in `app/queries/hooks/useSomething.ts` (or `.tsx` if the hook renders JSX)
 - Wrap `useQuery(gardensQuery())` in `useGardens`, `useMutation` in `useCreateGarden`, and so on
 - Call those hooks from pages; pass `data` / callbacks as props
+- Pass `mutationKey: plantMutationKeys.create()` on every `useMutation`
 
 **Don't**
 
@@ -31,6 +36,7 @@ Pages call the custom hooks and pass results into organisms. Never import TanSta
 - Export more than one hook from a file
 - Put `queryOptions` or `api()` wrappers inside the hook file
 - Use `useQueryClient` in a page to patch cache after a mutation
+- Omit `mutationKey`, or pass a query key as `mutationKey`
 
 ## Good / bad
 
@@ -45,8 +51,26 @@ const { data, isPending, isError, refetch } = useGardens();
 ```
 
 ```tsx
+// Good — mutation key from the feature mutation factory; cache write uses the query key
+useMutation({
+  mutationKey: plantMutationKeys.create(),
+  mutationFn: postPlant,
+  onSuccess: (plant) => {
+    queryClient.setQueryData(plantQueryKeys.byGarden(plant.gardenId), (current) =>
+      upsertPlantInList(current, plant),
+    );
+  },
+});
+```
+
+```tsx
 // Bad — data hook in a page or component
 export default function GardensIndexPage() {
   const { data } = useQuery(gardensQuery());
 }
+```
+
+```tsx
+// Bad — no mutationKey; query key used as mutationKey
+useMutation({ mutationKey: plantQueryKeys.byGarden(id), mutationFn: postPlant });
 ```

@@ -3,12 +3,12 @@ import { createRoutesStub } from 'react-router';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
 import {
-  gardenKeys,
   INCOMING_GARDEN_HIGHLIGHT_MS,
   type CreateGarden,
   type Garden,
   type UpdateGarden,
 } from '../../app/queries/gardens';
+import { gardenQueryKeys } from '../../app/queries/gardens.const';
 import type { CreatePlant, Plant, UpdatePlant } from '../../app/queries/plants';
 import GardenDetailPage from '../../app/routes/garden-detail';
 import GardensLayout, { loader as gardensLoader, shouldRevalidate } from '../../app/routes/gardens';
@@ -625,7 +625,7 @@ test('user still sees gardens when a refresh fails', async () => {
 
   failList = true;
   await act(async () => {
-    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+    await queryClient.refetchQueries({ queryKey: gardenQueryKeys.list() });
   });
 
   expect(screen.getByText('Front yard')).toBeTruthy();
@@ -654,7 +654,7 @@ test('user can see a garden added in another session', async () => {
 
   gardens = [garden, patio];
   await act(async () => {
-    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+    await queryClient.refetchQueries({ queryKey: gardenQueryKeys.list() });
   });
 
   expect(await screen.findByText('Patio')).toBeTruthy();
@@ -1098,7 +1098,7 @@ test('user sees a garden removed in another session', async () => {
 
   gardens = [patio];
   await act(async () => {
-    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+    await queryClient.refetchQueries({ queryKey: gardenQueryKeys.list() });
   });
 
   expect(screen.getByText('Front yard')).toBeTruthy();
@@ -1127,7 +1127,7 @@ test('user is told someone else deleted the garden they are viewing', async () =
 
   gardens = [];
   await act(async () => {
-    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+    await queryClient.refetchQueries({ queryKey: gardenQueryKeys.list() });
   });
 
   expect(await screen.findByText('Someone has deleted this garden')).toBeTruthy();
@@ -1142,7 +1142,7 @@ test('user is told someone else deleted the garden they are viewing', async () =
   expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
 
   await act(async () => {
-    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+    await queryClient.refetchQueries({ queryKey: gardenQueryKeys.list() });
   });
 
   expect(await screen.findByText('Someone has deleted this garden')).toBeTruthy();
