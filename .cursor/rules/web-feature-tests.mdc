@@ -1,0 +1,102 @@
+---
+description: Feature tests for user capabilities in apps/web, plus unit tests for the logic those features depend on. Use when adding or changing garden/plant behavior or their tests.
+globs:
+  - apps/web/app/routes/**/*.{ts,tsx}
+  - apps/web/app/queries/**/*.ts
+  - apps/web/tests/**/*.{ts,tsx}
+  - apps/web-e2e/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Feature tests in apps/web
+
+Test **what the user can do**, not how the screen looks. A feature test answers a capability question (`Can the user see gardens?`). A unit test protects logic that capability needs (`createGardenSchema` rejects invalid input).
+
+Do not add visual, layout, copy-structure, or component-snapshot tests.
+
+Follow the [testing trophy](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications): most effort on integration tests, fewer unit tests, a thin e2e layer. A page that wires several components is still an **integration** test, not e2e.
+
+## Where a capability test lives
+
+| Kind | Use when | Place |
+| --- | --- | --- |
+| Integration (default) | The capability is one page/flow (see gardens, add a garden). Stub HTTP. | `apps/web/tests/routes/*.spec.tsx` |
+| Unit | Isolated logic the feature depends on (Zod schema, copy mapper). No render. | `apps/web/tests/**/*.spec.ts` |
+| E2E | The capability needs a real document/browser (MPA navigation, loader HTML). Keep this set small. | `apps/web-e2e` |
+
+Name tests as capabilities: `user can see gardens`, `user can add a garden`.
+
+## Integration tests
+
+- Use stubbed `fetch` (same helpers as the gardens spec). Never hit the live API from Vitest (delay + ~10% errors).
+- Assert **outcomes**: garden/plant data on the page, request URL/body, list contents after a mutation.
+- Failed load: the user is told **why** gardens are not shown, can retry, then sees gardens. Keep `retry: false` in the test QueryClient so the first failure is what the user sees.
+- Failed create: the garden is not added.
+- Do not assert column headers, skeleton markup, `data-required`, modal chrome, CSS, or exact layout.
+
+## Unit tests (safeguards)
+
+Add a unit test only for non-trivial logic a feature test would bury: Zod schemas that gate a mutation, extracted error-status → copy mappers, query-key invariants (plants scoped by `gardenId`).
+
+Do not unit-test presentational components, `api()` plumbing, or React Query wiring the integration test already exercises.
+
+## E2E
+
+Only for capabilities that integration tests cannot prove. Do not point Playwright at the live slow/random API plugins.
+
+## Agent do / don't
+
+**Do**
+
+- Add an integration capability test when the user can do something new on a page
+- Unit-test the schema/mapper that feature needs, without rendering
+- Use Playwright only when the flow needs a real document (cross-page MPA, loader HTML)
+
+**Don't**
+
+- Treat “spans several components” as a reason to write Playwright; that is still a route integration test
+- Test how the UI looks (headers, skeletons, labels, spacing)
+- Add a `GardenList` / modal test as a stand-in for the capability
+- Copy layout assertions from older specs
+- Call the real API from Vitest
+
+## Good / bad
+
+```ts
+test('user can see gardens', async () => {
+  stubGardensApi({ list: () => jsonResponse([garden]) });
+  renderGardensPage();
+  expect(await screen.findByText('Front yard')).toBeTruthy();
+});
+
+test('user is told why gardens are missing and can retry', async () => {
+  let shouldFail = true;
+  stubGardensApi({
+    list: () => {
+      if (shouldFail) {
+        shouldFail = false;
+        return new Response('boom', { status: 500 });
+      }
+      return jsonResponse([garden]);
+    },
+  });
+  renderGardensPage();
+  expect(await screen.findByText("Couldn't load gardens")).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(await screen.findByText('Front yard')).toBeTruthy();
+});
+
+test('createGardenSchema requires a name', () => {
+  const result = createGardenSchema.safeParse({
+    gardenName: '',
+    totalSurfaceArea: 10,
+  });
+  expect(result.success).toBe(false);
+});
+```
+
+```ts
+test('renders garden table headers', () => {
+  expect(screen.getByRole('columnheader', { name: 'Garden name' })).toBeTruthy();
+});
+```
