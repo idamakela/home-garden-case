@@ -32,6 +32,7 @@ export function createTestQueryClient() {
     defaultOptions: {
       queries: {
         retry: false,
+        staleTime: 60_000,
       },
     },
   });

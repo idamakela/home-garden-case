@@ -1,11 +1,13 @@
 import { Button, Group, Notification, Stack, Text, Title, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useState } from 'react';
-import { useParams, type MetaFunction } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams, type MetaFunction } from 'react-router';
 import { AddGardenModal } from '../components/molecules/AddGardenModal/AddGardenModal';
 import { BackLink } from '../components/molecules/BackLink/BackLink';
+import { DeleteGardenModal } from '../components/molecules/DeleteGardenModal/DeleteGardenModal';
 import { ErrorAlert } from '../components/molecules/ErrorAlert/ErrorAlert';
+import { GardenRemovedModal } from '../components/molecules/GardenRemovedModal/GardenRemovedModal';
 import { PlantList } from '../components/organisms/PlantList/PlantList';
 import { PlantListSkeleton } from '../components/organisms/PlantList/PlantListSkeleton';
 import { GardenDetail } from '../components/templates/GardenDetail/GardenDetail';
@@ -14,6 +16,7 @@ import { gardensLoadCopy, gardensUpdateCopy } from '../lib/garden-copy';
 import { parseGardenId } from '../lib/garden-id';
 import { plantsLoadCopy } from '../lib/plant-copy';
 import { type Garden, type UpdateGarden } from '../queries/gardens';
+import { useDeleteGarden } from '../queries/hooks/useDeleteGarden';
 import { useGardens } from '../queries/hooks/useGardens';
 import { usePlantsByGarden } from '../queries/hooks/usePlantsByGarden';
 import { useUpdateGarden } from '../queries/hooks/useUpdateGarden';
@@ -70,29 +73,63 @@ function toUpdateGarden(garden: Garden): UpdateGarden {
 }
 
 export default function GardenDetailPage() {
+  const navigate = useNavigate();
   const { gardenId: gardenIdParam } = useParams();
   const gardenId = parseGardenId(gardenIdParam);
-  const [opened, { open, close }] = useDisclosure(false);
+  const [updateOpened, updateModal] = useDisclosure(false);
+  const [deleteOpened, deleteModal] = useDisclosure(false);
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
   const [restoreValues, setRestoreValues] = useState<UpdateGarden | null>(null);
-  const gardens = useGardens({ refetchInterval: false });
+  const [heldGarden, setHeldGarden] = useState<Garden | undefined>();
+  const [removedDialog, setRemovedDialog] = useState({ opened: false, canStay: true });
+  const ownDeleteRef = useRef(false);
+  const gardens = useGardens();
   const cachedGarden =
     gardenId == null ? undefined : gardens.data?.find((item) => item.gardenId === gardenId);
-  const garden = cachedGarden
+  const displayedGarden =
+    cachedGarden ?? (heldGarden?.gardenId === gardenId ? heldGarden : undefined);
+  const garden = displayedGarden
     ? pendingUpdate
-      ? { ...cachedGarden, ...pendingUpdate.body }
-      : cachedGarden
+      ? { ...displayedGarden, ...pendingUpdate.body }
+      : displayedGarden
     : undefined;
   const plants = usePlantsByGarden(gardenId ?? null);
   const updateGarden = useUpdateGarden();
+  const deleteGarden = useDeleteGarden();
+  const remotelyRemoved =
+    !ownDeleteRef.current &&
+    gardenId != null &&
+    gardens.data != null &&
+    cachedGarden == null &&
+    heldGarden?.gardenId === gardenId;
+
+  useEffect(() => {
+    if (cachedGarden) {
+      setHeldGarden(cachedGarden);
+    }
+  }, [cachedGarden]);
+
+  useEffect(() => {
+    if (!remotelyRemoved) {
+      if (cachedGarden) {
+        setRemovedDialog({ opened: false, canStay: true });
+      }
+
+      return;
+    }
+
+    setRemovedDialog((current) =>
+      current.opened ? current : { opened: true, canStay: current.canStay },
+    );
+  }, [remotelyRemoved, gardens.dataUpdatedAt, cachedGarden]);
 
   function openUpdate() {
     setRestoreValues(null);
-    open();
+    updateModal.open();
   }
 
-  function closeModal() {
-    close();
+  function closeUpdateModal() {
+    updateModal.close();
     setRestoreValues(null);
   }
 
@@ -104,7 +141,7 @@ export default function GardenDetailPage() {
     const clientId = crypto.randomUUID();
     setPendingUpdate({ clientId, gardenId, body });
     setRestoreValues(null);
-    close();
+    updateModal.close();
     updateGarden.mutate(
       { gardenId, body },
       {
@@ -143,7 +180,7 @@ export default function GardenDetailPage() {
                 onClick={() => {
                   notifications.hide(notificationId);
                   setRestoreValues(body);
-                  open();
+                  updateModal.open();
                 }}
               >
                 <Notification color="red" title={copy.title} withCloseButton={false} withBorder>
@@ -155,6 +192,25 @@ export default function GardenDetailPage() {
         },
       },
     );
+  }
+
+  function confirmDelete() {
+    if (gardenId == null) {
+      return;
+    }
+
+    ownDeleteRef.current = true;
+    deleteModal.close();
+    deleteGarden.mutate(gardenId);
+    navigate('/gardens');
+  }
+
+  function stayOnRemovedGarden() {
+    setRemovedDialog({ opened: false, canStay: false });
+  }
+
+  function goBackToGardens() {
+    navigate('/gardens');
   }
 
   let content;
@@ -217,7 +273,7 @@ export default function GardenDetailPage() {
               <Button type="button" onClick={openUpdate}>
                 Update garden
               </Button>
-              <Button type="button" variant="default">
+              <Button type="button" variant="default" onClick={deleteModal.open}>
                 Delete garden
               </Button>
             </Group>
@@ -225,12 +281,23 @@ export default function GardenDetailPage() {
           {...gardenFields(garden)}
         />
         <AddGardenModal
-          opened={opened}
-          onClose={closeModal}
+          opened={updateOpened}
+          onClose={closeUpdateModal}
           onSubmit={submitUpdate}
           initialValues={restoreValues ?? toUpdateGarden(garden)}
           title="Update garden"
           submitLabel="Update garden"
+        />
+        <DeleteGardenModal
+          opened={deleteOpened}
+          onClose={deleteModal.close}
+          onConfirm={confirmDelete}
+        />
+        <GardenRemovedModal
+          opened={removedDialog.opened}
+          canStay={removedDialog.canStay}
+          onStay={stayOnRemovedGarden}
+          onGoBack={goBackToGardens}
         />
       </>
     );

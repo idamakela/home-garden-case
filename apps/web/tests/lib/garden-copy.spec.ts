@@ -1,5 +1,10 @@
 import { ApiError } from '../../app/lib/api';
-import { gardensCreateCopy, gardensLoadCopy, gardensUpdateCopy } from '../../app/lib/garden-copy';
+import {
+  gardensCreateCopy,
+  gardensDeleteCopy,
+  gardensLoadCopy,
+  gardensUpdateCopy,
+} from '../../app/lib/garden-copy';
 
 test('gardensLoadCopy maps 404', () => {
   expect(gardensLoadCopy(new ApiError(404, 'missing'))).toEqual({
@@ -67,6 +72,34 @@ test('gardensUpdateCopy maps 409', () => {
 test('gardensUpdateCopy maps 500', () => {
   expect(gardensUpdateCopy(new ApiError(500, 'boom'))).toEqual({
     title: "Couldn't update this garden",
+    message: 'The service is temporarily unavailable. Try again.',
+  });
+});
+
+test('gardensDeleteCopy maps 400', () => {
+  expect(gardensDeleteCopy(new ApiError(400, 'invalid'))).toEqual({
+    title: "Couldn't delete this garden",
+    message: 'Check the details and try again.',
+  });
+});
+
+test('gardensDeleteCopy maps 409', () => {
+  expect(gardensDeleteCopy(new ApiError(409, 'conflict'))).toEqual({
+    title: "Couldn't delete this garden",
+    message: 'This conflicts with current data. Try again.',
+  });
+});
+
+test('gardensDeleteCopy maps 500', () => {
+  expect(gardensDeleteCopy(new ApiError(500, 'boom'))).toEqual({
+    title: "Couldn't delete this garden",
+    message: 'The service is temporarily unavailable. Try again.',
+  });
+});
+
+test('gardensDeleteCopy names the garden when provided', () => {
+  expect(gardensDeleteCopy(new ApiError(500, 'boom'), 'Front yard')).toEqual({
+    title: "Couldn't delete Front yard",
     message: 'The service is temporarily unavailable. Try again.',
   });
 });

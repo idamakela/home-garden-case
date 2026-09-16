@@ -8,6 +8,10 @@ import { SectionHeader } from '../components/molecules/SectionHeader/SectionHead
 import { GardenList } from '../components/organisms/GardenList/GardenList';
 import { GardenListSkeleton } from '../components/organisms/GardenList/GardenListSkeleton';
 import { gardensCreateCopy, gardensLoadCopy } from '../lib/garden-copy';
+import {
+  consumeIgnoredIncomingGarden,
+  consumeIgnoredOutgoingGarden,
+} from '../lib/garden-list-highlights';
 import { INCOMING_GARDEN_HIGHLIGHT_MS, type CreateGarden, type Garden } from '../queries/gardens';
 import { useCreateGarden } from '../queries/hooks/useCreateGarden';
 import { useGardens } from '../queries/hooks/useGardens';
@@ -39,7 +43,15 @@ function useIncomingGardenIds(gardens: Garden[] | undefined) {
 
     const newIds = gardens
       .filter((garden) => !acknowledgedIds.current.has(garden.gardenId))
-      .map((garden) => garden.gardenId);
+      .map((garden) => garden.gardenId)
+      .filter((gardenId) => {
+        if (consumeIgnoredIncomingGarden(gardenId)) {
+          acknowledgedIds.current.add(gardenId);
+          return false;
+        }
+
+        return true;
+      });
 
     if (newIds.length === 0) {
       return;
@@ -70,12 +82,98 @@ function useIncomingGardenIds(gardens: Garden[] | undefined) {
   return { incomingIds, acknowledge };
 }
 
+type OutgoingGarden = {
+  garden: Garden;
+  index: number;
+};
+
+function insertOutgoingGardens(gardens: Garden[], outgoing: OutgoingGarden[]) {
+  if (outgoing.length === 0) {
+    return gardens;
+  }
+
+  const rows = [...gardens];
+  const presentIds = new Set(gardens.map((garden) => garden.gardenId));
+
+  outgoing
+    .filter((item) => !presentIds.has(item.garden.gardenId))
+    .sort((left, right) => left.index - right.index)
+    .forEach((item) => {
+      rows.splice(Math.min(item.index, rows.length), 0, item.garden);
+    });
+
+  return rows;
+}
+
+function useOutgoingGardens(gardens: Garden[] | undefined) {
+  const previousGardens = useRef<Garden[]>([]);
+  const hasSeenList = useRef(false);
+  const [outgoing, setOutgoing] = useState<OutgoingGarden[]>([]);
+
+  useEffect(() => {
+    if (!gardens) {
+      return;
+    }
+
+    if (!hasSeenList.current) {
+      previousGardens.current = gardens;
+      hasSeenList.current = true;
+      return;
+    }
+
+    const currentIds = new Set(gardens.map((garden) => garden.gardenId));
+    const removed = previousGardens.current
+      .map((garden, index) => ({ garden, index }))
+      .filter((item) => {
+        if (currentIds.has(item.garden.gardenId)) {
+          return false;
+        }
+
+        if (consumeIgnoredOutgoingGarden(item.garden.gardenId)) {
+          return false;
+        }
+
+        return true;
+      });
+
+    previousGardens.current = gardens;
+
+    if (removed.length === 0) {
+      return;
+    }
+
+    setOutgoing((current) => {
+      const next = [...current];
+
+      removed.forEach((item) => {
+        if (
+          !next.some((outgoingGarden) => outgoingGarden.garden.gardenId === item.garden.gardenId)
+        ) {
+          next.push(item);
+        }
+      });
+
+      return next;
+    });
+
+    const timeout = window.setTimeout(() => {
+      const removedIds = new Set(removed.map((item) => item.garden.gardenId));
+      setOutgoing((current) => current.filter((item) => !removedIds.has(item.garden.gardenId)));
+    }, INCOMING_GARDEN_HIGHLIGHT_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [gardens]);
+
+  return outgoing;
+}
+
 export default function GardensIndexPage() {
   const [opened, { open, close }] = useDisclosure(false);
   const [pendingAdditions, setPendingAdditions] = useState<PendingAddition[]>([]);
   const [restoreValues, setRestoreValues] = useState<CreateGarden | null>(null);
   const { data, isPending, isError, error, refetch } = useGardens();
   const { incomingIds, acknowledge } = useIncomingGardenIds(data);
+  const outgoingGardens = useOutgoingGardens(data);
   const createGarden = useCreateGarden();
 
   function openAddGarden() {
@@ -130,15 +228,16 @@ export default function GardensIndexPage() {
     });
   }
 
+  const outgoingIds = new Set(outgoingGardens.map((item) => item.garden.gardenId));
   const gardenRows = [
-    ...(data ?? []).map((garden) => ({
+    ...insertOutgoingGardens(data ?? [], outgoingGardens).map((garden) => ({
       id: String(garden.gardenId),
       gardenName: garden.gardenName,
       totalSurfaceArea: garden.totalSurfaceArea,
       latitude: garden.latitude,
       longitude: garden.longitude,
-      pending: incomingIds.has(garden.gardenId),
-      to: `/gardens/${garden.gardenId}`,
+      pending: incomingIds.has(garden.gardenId) || outgoingIds.has(garden.gardenId),
+      to: outgoingIds.has(garden.gardenId) ? undefined : `/gardens/${garden.gardenId}`,
     })),
     ...pendingAdditions.map((pending) => ({
       id: `pending-${pending.clientId}`,

@@ -1,4 +1,9 @@
-import { createGardenSchema, upsertGardenInList, type Garden } from '../../app/queries/gardens';
+import {
+  createGardenSchema,
+  removeGardenFromList,
+  upsertGardenInList,
+  type Garden,
+} from '../../app/queries/gardens';
 
 const validGarden = {
   gardenName: 'Backyard',
@@ -105,4 +110,13 @@ test('upsertGardenInList replaces a garden with the same id', () => {
 test('upsertGardenInList uses the garden when the cache is empty', () => {
   expect(upsertGardenInList(undefined, backyard)).toEqual([backyard]);
   expect(upsertGardenInList([], backyard)).toEqual([backyard]);
+});
+
+test('removeGardenFromList drops a garden by id', () => {
+  expect(removeGardenFromList([frontYard, backyard], 1)).toEqual([backyard]);
+});
+
+test('removeGardenFromList uses an empty list when the cache is empty', () => {
+  expect(removeGardenFromList(undefined, 1)).toEqual([]);
+  expect(removeGardenFromList([], 1)).toEqual([]);
 });

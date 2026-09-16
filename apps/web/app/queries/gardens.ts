@@ -67,6 +67,10 @@ export function upsertGardenInList(current: Garden[] | undefined, garden: Garden
   return current.map((item) => (item.gardenId === garden.gardenId ? garden : item));
 }
 
+export function removeGardenFromList(current: Garden[] | undefined, gardenId: number): Garden[] {
+  return (current ?? []).filter((item) => item.gardenId !== gardenId);
+}
+
 export function getGardens() {
   return api<Garden[]>('/gardens');
 }

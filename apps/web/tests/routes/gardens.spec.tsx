@@ -11,10 +11,7 @@ import {
 } from '../../app/queries/gardens';
 import type { Plant } from '../../app/queries/plants';
 import GardenDetailPage from '../../app/routes/garden-detail';
-import GardensLayout, {
-  loader as gardensLoader,
-  shouldRevalidate,
-} from '../../app/routes/gardens';
+import GardensLayout, { loader as gardensLoader, shouldRevalidate } from '../../app/routes/gardens';
 import GardensIndexPage from '../../app/routes/gardens-index';
 import { renderWithQuery } from '../render-with-query';
 
@@ -53,6 +50,7 @@ function stubGardensApi(handlers: {
   list: () => Promise<Response> | Response;
   create?: (body: CreateGarden) => Promise<Response> | Response;
   update?: (gardenId: number, body: UpdateGarden) => Promise<Response> | Response;
+  delete?: (gardenId: number) => Promise<Response> | Response;
   plantsByGarden?: (gardenId: number) => Promise<Response> | Response;
 }) {
   vi.stubGlobal(
@@ -82,6 +80,12 @@ function stubGardensApi(handlers: {
         return (
           handlers.update?.(Number(gardenMatch[1]), body as UpdateGarden) ??
           new Response('Not found', { status: 404 })
+        );
+      }
+
+      if (gardenMatch && method === 'DELETE') {
+        return (
+          handlers.delete?.(Number(gardenMatch[1])) ?? new Response('Not found', { status: 404 })
         );
       }
 
@@ -767,4 +771,154 @@ test('user is told why a garden was not updated and can restore the form', async
   expect(within(restored).getByLabelText(/Location description/)).toHaveProperty('value', '');
   expect(within(restored).getByLabelText(/Latitude/)).toHaveProperty('value', '52.37');
   expect(within(restored).getByLabelText(/Longitude/)).toHaveProperty('value', '4.89');
+});
+
+test('user can cancel deleting a garden', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    delete: () => {
+      throw new Error('DELETE /gardens/:gardenId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.click(within(dialog).getByRole('button', { name: 'No, cancel' }));
+
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+});
+
+test('user can delete a garden', async () => {
+  const deleteRequest = deferred<Response>();
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    delete: (gardenId) => {
+      expect(gardenId).toBe(1);
+      return deleteRequest.promise;
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete garden' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes, delete' }));
+
+  expect(await screen.findByRole('button', { name: 'Add garden' })).toBeTruthy();
+  await waitFor(() => {
+    expect(screen.queryByRole('link', { name: 'Front yard' })).toBeNull();
+  });
+
+  deleteRequest.resolve(new Response(null, { status: 204 }));
+
+  await waitFor(() => {
+    expect(screen.queryByRole('link', { name: 'Front yard' })).toBeNull();
+  });
+});
+
+test('user is told why a garden was not deleted', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    delete: () => new Response('Internal error JSON {"message":"boom"}', { status: 500 }),
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Delete garden' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Yes, delete' }));
+
+  expect(await screen.findByRole('button', { name: 'Add garden' })).toBeTruthy();
+  expect(await screen.findByText("Couldn't delete Front yard")).toBeTruthy();
+  expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
+  expect(screen.queryByText(/boom/)).toBeNull();
+  expect(await screen.findByRole('link', { name: 'Front yard' })).toBeTruthy();
+});
+
+test('user sees a garden removed in another session', async () => {
+  const patio: Garden = {
+    gardenId: 2,
+    gardenName: 'Patio',
+    totalSurfaceArea: 8,
+    locationDescription: null,
+    latitude: null,
+    longitude: null,
+    createdAt: '2026-01-02T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+  };
+  let gardens: Garden[] = [garden, patio];
+
+  stubGardensApi({ list: () => jsonResponse(gardens) });
+
+  const { queryClient } = renderGardensPage();
+
+  await screen.findByRole('link', { name: 'Front yard' });
+  expect(screen.getByRole('link', { name: 'Patio' })).toBeTruthy();
+
+  gardens = [patio];
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+  });
+
+  expect(screen.getByText('Front yard')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Patio' })).toBeTruthy();
+
+  await waitFor(
+    () => {
+      expect(screen.queryByText('Front yard')).toBeNull();
+    },
+    { timeout: INCOMING_GARDEN_HIGHLIGHT_MS + 500 },
+  );
+});
+
+test('user is told someone else deleted the garden they are viewing', async () => {
+  let gardens: Garden[] = [garden];
+
+  stubGardensApi({
+    list: () => jsonResponse(gardens),
+    plantsByGarden: () => jsonResponse([plant]),
+  });
+
+  const { queryClient } = renderGardensPage('/gardens/1');
+
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+  expect(await screen.findByText('Tomato')).toBeTruthy();
+
+  gardens = [];
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+  });
+
+  expect(await screen.findByText('Someone has deleted this garden')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+  expect(screen.getByText('Tomato')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Stay here' }));
+
+  await waitFor(() => {
+    expect(screen.queryByText('Someone has deleted this garden')).toBeNull();
+  });
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+  });
+
+  expect(await screen.findByText('Someone has deleted this garden')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Stay here' })).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Go back to gardens' }));
+
+  expect(await screen.findByRole('button', { name: 'Add garden' })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Front yard' })).toBeNull();
 });
