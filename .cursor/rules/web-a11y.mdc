@@ -47,7 +47,7 @@ Target [WCAG 2.1](https://www.w3.org/TR/WCAG21/) Level A + AA. Prefer native HTM
 - Keep `<html lang="en">` in `root.tsx`. Set `lang` on phrases in another language.
 - Informative images: equivalent `alt`. Decorative: `alt=""` or CSS background. No filename or `image` alt.
 - Color is not the only signal (pending, errors, required). Pair with text, icon, or `aria-busy`.
-- Contrast via theme tokens (`theme.ts` / `--mantine-*` / `--color-text`): text 4.5:1 (large 3:1), UI and focus 3:1. No raw hex that drops contrast.
+- Contrast via theme tokens (`theme.ts` / `--mantine-*` / `--color-text`). Normal text, including labels on filled buttons, is at least **4.5:1** (1.4.3). Large text (18pt or 14pt bold) may be 3:1. Non-text UI and focus indicators are at least 3:1 (1.4.11). Filled forest buttons use `theme.white` so the label meets 4.5:1; do not put dark text on that green. No raw hex that drops contrast.
 
 ## Document (2.4.1, 2.4.2, 3.2.3)
 
@@ -61,12 +61,14 @@ Target [WCAG 2.1](https://www.w3.org/TR/WCAG21/) Level A + AA. Prefer native HTM
 - Prefer Mantine `Button`, `Title`, `Anchor`, `TextInput`, `Table`, `Alert`, `Modal`
 - Label every control; keep heading order and one `main`
 - Announce async status with notifications, `Alert`, or `aria-busy`
+- Keep filled forest button labels at 4.5:1 (`theme.white` on `forest-7`)
 
 **Don't**
 
 - Fake buttons, headings, or tables with `div`
 - Use placeholder-only inputs or `outline: none` with no replacement
 - Override native roles, or hide a focused control with `aria-hidden`
+- Set dark text on filled primary/forest buttons
 
 ```tsx
 <header>

@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import MyGardenPage from '../../app/routes/my-garden';
 import { renderWithProviders } from '../render-with-query';
 
-test('renders the unimplemented placeholder', () => {
+test('user can open my garden', () => {
   const ReactRouterStub = createRoutesStub([
     {
       path: '/my-garden',
@@ -13,5 +13,5 @@ test('renders the unimplemented placeholder', () => {
 
   renderWithProviders(<ReactRouterStub initialEntries={['/my-garden']} />);
 
-  expect(screen.getByText('this has yet to be implemented :(')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'My Garden', level: 1 })).toBeTruthy();
 });

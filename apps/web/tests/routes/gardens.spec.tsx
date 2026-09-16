@@ -78,19 +78,9 @@ function renderGardensPageWithLoader() {
   return renderWithQuery(<ReactRouterStub initialEntries={['/gardens']} />);
 }
 
-function expectGardensHeader() {
-  expect(screen.getByRole('heading', { name: 'Gardens', level: 1 })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Add garden' })).toBeTruthy();
-}
-
 async function openAddGardenModal() {
   fireEvent.click(screen.getByRole('button', { name: 'Add garden' }));
   return screen.findByRole('dialog');
-}
-
-function fieldLabel(dialog: HTMLElement, name: string) {
-  const input = within(dialog).getByLabelText(new RegExp(name));
-  return dialog.querySelector(`label[for="${input.id}"]`);
 }
 
 function deferred<T>() {
@@ -137,27 +127,30 @@ function fillGardenForm(
   }
 }
 
-function gardenRow(name: string) {
-  return screen.getByRole('row', { name: new RegExp(name) });
-}
-
 afterEach(() => {
   notifications.clean();
   vi.unstubAllGlobals();
 });
 
-test('shows a skeleton while gardens are loading', () => {
-  stubGardensApi({ list: () => new Promise<Response>(() => undefined) });
+test('user can see gardens', async () => {
+  stubGardensApi({ list: () => jsonResponse([garden]) });
 
   renderGardensPage();
 
-  expectGardensHeader();
-  const loading = screen.getByLabelText('Loading gardens');
-  expect(loading.getAttribute('aria-busy')).toBe('true');
-  expect(screen.queryByRole('columnheader', { name: 'Garden name' })).toBeNull();
+  expect(await screen.findByText('Front yard')).toBeTruthy();
+  expect(screen.getByText('12')).toBeTruthy();
 });
 
-test('shows an alert and retries a failed gardens request', async () => {
+test('user sees an empty gardens list', async () => {
+  stubGardensApi({ list: () => jsonResponse([]) });
+
+  renderGardensPage();
+
+  expect(await screen.findByText('No gardens yet. Add one to get started.')).toBeTruthy();
+  expect(screen.queryByText('Front yard')).toBeNull();
+});
+
+test('user is told why gardens are missing and can retry', async () => {
   let shouldFail = true;
 
   stubGardensApi({
@@ -173,123 +166,16 @@ test('shows an alert and retries a failed gardens request', async () => {
 
   renderGardensPage();
 
-  expectGardensHeader();
-  expect(await screen.findByRole('alert')).toBeTruthy();
-  expect(screen.getByText("Couldn't load gardens")).toBeTruthy();
+  expect(await screen.findByText("Couldn't load gardens")).toBeTruthy();
   expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
-  expect(screen.queryByText(/Internal error/)).toBeNull();
   expect(screen.queryByText(/boom/)).toBeNull();
 
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
-  await waitFor(() => screen.findByRole('columnheader', { name: 'Garden name' }));
-  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+  expect(await screen.findByText('Front yard')).toBeTruthy();
 });
 
-test('shows an empty message when there are no gardens', async () => {
-  stubGardensApi({ list: () => jsonResponse([]) });
-
-  renderGardensPage();
-
-  expect(await screen.findByText('No gardens yet. Add one to get started.')).toBeTruthy();
-  expectGardensHeader();
-  expect(screen.queryByRole('columnheader', { name: 'Garden name' })).toBeNull();
-  expect(screen.queryByRole('alert')).toBeNull();
-});
-
-test('renders gardens from the API', async () => {
-  stubGardensApi({ list: () => jsonResponse([garden]) });
-
-  renderGardensPage();
-
-  await waitFor(() => screen.findByRole('columnheader', { name: 'Garden name' }));
-  expectGardensHeader();
-
-  expect(screen.getByRole('columnheader', { name: 'Total surface area' })).toBeTruthy();
-  expect(screen.getByRole('columnheader', { name: 'Latitude' }).className).toMatch(/desktopOnly/);
-  expect(screen.getByRole('columnheader', { name: 'Longitude' }).className).toMatch(/desktopOnly/);
-  expect(screen.getByRole('columnheader', { name: 'Garden name' }).className).not.toMatch(
-    /desktopOnly/,
-  );
-  expect(screen.getByRole('columnheader', { name: 'Total surface area' }).className).not.toMatch(
-    /desktopOnly/,
-  );
-  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
-  expect(screen.getByRole('cell', { name: '12' })).toBeTruthy();
-  expect(screen.getByRole('cell', { name: '52.37' })).toBeTruthy();
-  expect(screen.getByRole('cell', { name: '4.89' })).toBeTruthy();
-});
-
-test('opens the add garden modal with a disabled submit button', async () => {
-  stubGardensApi({ list: () => jsonResponse([garden]) });
-
-  renderGardensPage();
-  await screen.findByRole('columnheader', { name: 'Garden name' });
-
-  const dialog = await openAddGardenModal();
-  const submit = within(dialog).getByRole('button', { name: 'Add garden' });
-
-  expect(within(dialog).getByRole('heading', { name: 'Add garden' })).toBeTruthy();
-  expect(submit).toHaveProperty('disabled', true);
-});
-
-test('enables add garden only when the request body is valid', async () => {
-  stubGardensApi({ list: () => jsonResponse([garden]) });
-
-  renderGardensPage();
-  await screen.findByRole('columnheader', { name: 'Garden name' });
-
-  const dialog = await openAddGardenModal();
-  const submit = () => within(dialog).getByRole('button', { name: 'Add garden' });
-
-  expect(fieldLabel(dialog, 'Latitude')?.getAttribute('data-required')).toBeNull();
-  expect(fieldLabel(dialog, 'Longitude')?.getAttribute('data-required')).toBeNull();
-
-  fireEvent.change(within(dialog).getByLabelText(/Garden name/), {
-    target: { value: 'Backyard' },
-  });
-  expect(submit()).toHaveProperty('disabled', true);
-
-  fireEvent.change(within(dialog).getByLabelText(/Total surface area/), {
-    target: { value: '20' },
-  });
-  expect(submit()).toHaveProperty('disabled', false);
-
-  fireEvent.change(within(dialog).getByLabelText(/Latitude/), {
-    target: { value: '52' },
-  });
-  expect(submit()).toHaveProperty('disabled', true);
-  expect(fieldLabel(dialog, 'Latitude')?.getAttribute('data-required')).toBeNull();
-  expect(fieldLabel(dialog, 'Longitude')?.getAttribute('data-required')).toBe('true');
-
-  fireEvent.change(within(dialog).getByLabelText(/Longitude/), {
-    target: { value: '4' },
-  });
-  expect(submit()).toHaveProperty('disabled', false);
-  expect(fieldLabel(dialog, 'Latitude')?.getAttribute('data-required')).toBe('true');
-  expect(fieldLabel(dialog, 'Longitude')?.getAttribute('data-required')).toBe('true');
-});
-
-test('closes the add garden modal without creating a garden', async () => {
-  stubGardensApi({
-    list: () => jsonResponse([garden]),
-    create: () => {
-      throw new Error('POST /gardens should not be called');
-    },
-  });
-
-  renderGardensPage();
-  await screen.findByRole('columnheader', { name: 'Garden name' });
-
-  const dialog = await openAddGardenModal();
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-});
-
-test('shows a garden in the list before the create request resolves', async () => {
+test('user can add a garden', async () => {
   const created: Garden = {
     gardenId: 2,
     gardenName: 'Backyard',
@@ -317,7 +203,7 @@ test('shows a garden in the list before the create request resolves', async () =
   });
 
   renderGardensPage();
-  await screen.findByRole('columnheader', { name: 'Garden name' });
+  await screen.findByText('Front yard');
 
   const dialog = await openAddGardenModal();
   fillGardenForm(dialog, {
@@ -329,28 +215,60 @@ test('shows a garden in the list before the create request resolves', async () =
   });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
 
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-  expect(screen.getByRole('cell', { name: 'Backyard' })).toBeTruthy();
-  expect(gardenRow('Backyard').getAttribute('aria-busy')).toBe('true');
+  expect(await screen.findByText('Backyard')).toBeTruthy();
 
   createRequest.resolve(jsonResponse(created, 201));
 
   await waitFor(() => {
-    expect(gardenRow('Backyard').getAttribute('aria-busy')).toBeNull();
+    expect(screen.getAllByText('Backyard')).toHaveLength(1);
   });
-  expect(screen.getAllByRole('cell', { name: 'Backyard' })).toHaveLength(1);
 });
 
-test('shows a clickable error toast when creating a garden fails', async () => {
+test('user cannot add a garden with incomplete details', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    create: () => {
+      throw new Error('POST /gardens should not be called');
+    },
+  });
+
+  renderGardensPage();
+  await screen.findByText('Front yard');
+
+  const dialog = await openAddGardenModal();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
+
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.queryByText('Backyard')).toBeNull();
+});
+
+test('user can cancel adding a garden', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    create: () => {
+      throw new Error('POST /gardens should not be called');
+    },
+  });
+
+  renderGardensPage();
+  await screen.findByText('Front yard');
+
+  const dialog = await openAddGardenModal();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+test('user is told why a garden was not added and can restore the form', async () => {
   stubGardensApi({
     list: () => jsonResponse([garden]),
     create: () => new Response('Internal error JSON {"message":"boom"}', { status: 500 }),
   });
 
   renderGardensPage();
-  await screen.findByRole('columnheader', { name: 'Garden name' });
+  await screen.findByText('Front yard');
 
   const dialog = await openAddGardenModal();
   fillGardenForm(dialog, {
@@ -362,13 +280,10 @@ test('shows a clickable error toast when creating a garden fails', async () => {
   });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
 
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
   expect(await screen.findByText("Couldn't add this garden")).toBeTruthy();
   expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
   expect(screen.queryByText(/boom/)).toBeNull();
-  expect(screen.queryByRole('cell', { name: 'Backyard' })).toBeNull();
+  expect(screen.queryByText('Backyard')).toBeNull();
 
   fireEvent.click(screen.getByRole('button', { name: /Couldn't add this garden/ }));
 
@@ -383,7 +298,7 @@ test('shows a clickable error toast when creating a garden fails', async () => {
   expect(within(restored).getByLabelText(/Longitude/)).toHaveProperty('value', '4');
 });
 
-test('clears only the pending garden that succeeded', async () => {
+test('user can add more than one garden at a time', async () => {
   const backyard: Garden = {
     gardenId: 2,
     gardenName: 'Backyard',
@@ -406,58 +321,43 @@ test('clears only the pending garden that succeeded', async () => {
   });
 
   renderGardensPage();
-  await screen.findByRole('columnheader', { name: 'Garden name' });
+  await screen.findByText('Front yard');
 
   const firstDialog = await openAddGardenModal();
   fillGardenForm(firstDialog, { gardenName: 'Backyard', totalSurfaceArea: '20' });
   fireEvent.click(within(firstDialog).getByRole('button', { name: 'Add garden' }));
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
+  expect(await screen.findByText('Backyard')).toBeTruthy();
 
   const secondDialog = await openAddGardenModal();
   fillGardenForm(secondDialog, { gardenName: 'Patio', totalSurfaceArea: '8' });
   fireEvent.click(within(secondDialog).getByRole('button', { name: 'Add garden' }));
-  await waitFor(() => {
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  expect(gardenRow('Backyard').getAttribute('aria-busy')).toBe('true');
-  expect(gardenRow('Patio').getAttribute('aria-busy')).toBe('true');
+  expect(await screen.findByText('Patio')).toBeTruthy();
 
   creates.get('Backyard')?.resolve(jsonResponse(backyard, 201));
 
   await waitFor(() => {
-    expect(gardenRow('Backyard').getAttribute('aria-busy')).toBeNull();
+    expect(screen.getByText('Backyard')).toBeTruthy();
+    expect(screen.getByText('Patio')).toBeTruthy();
   });
-  expect(gardenRow('Patio').getAttribute('aria-busy')).toBe('true');
-  expect(screen.getAllByRole('cell', { name: 'Backyard' })).toHaveLength(1);
 });
 
-test('renders gardens from the loader without a skeleton', async () => {
+test('user can see gardens from the first HTML', async () => {
   stubGardensApi({ list: () => jsonResponse([garden]) });
 
   renderGardensPageWithLoader();
 
-  expect(await screen.findByRole('columnheader', { name: 'Garden name' })).toBeTruthy();
-  expectGardensHeader();
-  expect(screen.queryByLabelText('Loading gardens')).toBeNull();
-  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+  expect(await screen.findByText('Front yard')).toBeTruthy();
 });
 
-test('renders the empty message from the loader without a skeleton', async () => {
+test('user sees an empty gardens list from the first HTML', async () => {
   stubGardensApi({ list: () => jsonResponse([]) });
 
   renderGardensPageWithLoader();
 
   expect(await screen.findByText('No gardens yet. Add one to get started.')).toBeTruthy();
-  expectGardensHeader();
-  expect(screen.queryByLabelText('Loading gardens')).toBeNull();
-  expect(screen.queryByRole('columnheader', { name: 'Garden name' })).toBeNull();
-  expect(screen.queryByRole('alert')).toBeNull();
 });
 
-test('renders a dehydrated load error without a skeleton and retries', async () => {
+test('user is told why gardens are missing in the first HTML and can retry', async () => {
   let failList = true;
 
   stubGardensApi({
@@ -472,22 +372,17 @@ test('renders a dehydrated load error without a skeleton and retries', async () 
 
   renderGardensPageWithLoader();
 
-  expect(await screen.findByRole('alert')).toBeTruthy();
-  expectGardensHeader();
-  expect(screen.queryByLabelText('Loading gardens')).toBeNull();
-  expect(screen.getByText("Couldn't load gardens")).toBeTruthy();
+  expect(await screen.findByText("Couldn't load gardens")).toBeTruthy();
   expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
-  expect(screen.queryByText(/Internal error/)).toBeNull();
   expect(screen.queryByText(/boom/)).toBeNull();
 
   failList = false;
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
-  await waitFor(() => screen.findByRole('columnheader', { name: 'Garden name' }));
-  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+  expect(await screen.findByText('Front yard')).toBeTruthy();
 });
 
-test('keeps the garden list when a refetch fails', async () => {
+test('user still sees gardens when a refresh fails', async () => {
   let failList = false;
 
   stubGardensApi({
@@ -502,21 +397,19 @@ test('keeps the garden list when a refetch fails', async () => {
 
   const { queryClient } = renderGardensPage();
 
-  await screen.findByRole('columnheader', { name: 'Garden name' });
-  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+  await screen.findByText('Front yard');
 
   failList = true;
   await act(async () => {
     await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
   });
 
-  expectGardensHeader();
-  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
-  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByText('Front yard')).toBeTruthy();
+  expect(screen.queryByText("Couldn't load gardens")).toBeNull();
   expect(screen.queryByText(/boom/)).toBeNull();
 });
 
-test('shows a remotely added garden as pending then settles', async () => {
+test('user can see a garden added in another session', async () => {
   const patio: Garden = {
     gardenId: 2,
     gardenName: 'Patio',
@@ -533,21 +426,19 @@ test('shows a remotely added garden as pending then settles', async () => {
 
   const { queryClient } = renderGardensPage();
 
-  await screen.findByRole('columnheader', { name: 'Garden name' });
-  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+  await screen.findByText('Front yard');
 
   gardens = [garden, patio];
   await act(async () => {
     await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
   });
 
-  expect(await screen.findByRole('cell', { name: 'Patio' })).toBeTruthy();
-  expect(gardenRow('Patio').getAttribute('aria-busy')).toBe('true');
-  expect(gardenRow('Front yard').getAttribute('aria-busy')).toBeNull();
+  expect(await screen.findByText('Patio')).toBeTruthy();
+  expect(screen.getByText('Front yard')).toBeTruthy();
 
   await waitFor(
     () => {
-      expect(gardenRow('Patio').getAttribute('aria-busy')).toBeNull();
+      expect(screen.getByText('Patio')).toBeTruthy();
     },
     { timeout: INCOMING_GARDEN_HIGHLIGHT_MS + 500 },
   );

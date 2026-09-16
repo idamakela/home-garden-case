@@ -9,13 +9,14 @@ import {
   type DehydratedState,
 } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import type { MetaFunction } from 'react-router';
 import { AddGardenModal } from '../components/molecules/AddGardenModal/AddGardenModal';
 import { ErrorAlert } from '../components/molecules/ErrorAlert/ErrorAlert';
 import { SectionHeader } from '../components/molecules/SectionHeader/SectionHeader';
 import { GardenList } from '../components/organisms/GardenList/GardenList';
 import { GardenListSkeleton } from '../components/organisms/GardenList/GardenListSkeleton';
 import { AppShell } from '../components/templates/AppShell/AppShell';
-import { getErrorStatus } from '../lib/api';
+import { gardensCreateCopy, gardensLoadCopy } from '../lib/garden-copy';
 import { dehydrateQueryState, makeQueryClient } from '../lib/query-client';
 import {
   gardenKeys,
@@ -30,70 +31,12 @@ type GardensLoaderData = {
   dehydratedState: DehydratedState;
 };
 
+export const meta: MetaFunction = () => [{ title: 'Gardens · Home Garden' }];
+
 type PendingAddition = {
   clientId: string;
   body: CreateGarden;
 };
-
-function gardensLoadCopy(error: unknown): { title: string; message: string } {
-  const status = getErrorStatus(error);
-
-  if (status === 404) {
-    return {
-      title: "We couldn't find gardens",
-      message: 'They may have been moved or deleted.',
-    };
-  }
-
-  if (status === 409) {
-    return {
-      title: "Couldn't load gardens",
-      message: 'The list changed. Try again.',
-    };
-  }
-
-  if (status != null && status >= 500) {
-    return {
-      title: "Couldn't load gardens",
-      message: 'The service is temporarily unavailable. Try again.',
-    };
-  }
-
-  return {
-    title: "Couldn't load gardens",
-    message: 'Please try again.',
-  };
-}
-
-function gardensCreateCopy(error: unknown): { title: string; message: string } {
-  const status = getErrorStatus(error);
-
-  if (status === 400) {
-    return {
-      title: "Couldn't add this garden",
-      message: 'Check the details and try again.',
-    };
-  }
-
-  if (status === 409) {
-    return {
-      title: "Couldn't add this garden",
-      message: 'This conflicts with current data. Try again.',
-    };
-  }
-
-  if (status != null && status >= 500) {
-    return {
-      title: "Couldn't add this garden",
-      message: 'The service is temporarily unavailable. Try again.',
-    };
-  }
-
-  return {
-    title: "Couldn't add this garden",
-    message: 'Please try again.',
-  };
-}
 
 function dropPending(pendingAdditions: PendingAddition[], clientId: string) {
   return pendingAdditions.filter((item) => item.clientId !== clientId);

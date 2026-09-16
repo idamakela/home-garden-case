@@ -1,9 +1,34 @@
-import { createTheme, type CSSVariablesResolver } from '@mantine/core';
+import {
+  createTheme,
+  defaultVariantColorsResolver,
+  parseThemeColor,
+  type CSSVariablesResolver,
+  type VariantColorsResolver,
+} from '@mantine/core';
+
+const variantColorResolver: VariantColorsResolver = (input) => {
+  const resolved = defaultVariantColorsResolver(input);
+  const parsed = parseThemeColor({
+    color: input.color || input.theme.primaryColor,
+    theme: input.theme,
+  });
+
+  if (input.variant === 'filled' && parsed.color === 'forest') {
+    return {
+      ...resolved,
+      color: 'var(--mantine-color-white)',
+      hoverColor: 'var(--mantine-color-white)',
+    };
+  }
+
+  return resolved;
+};
 
 export const theme = createTheme({
   primaryColor: 'forest',
   primaryShade: { light: 7, dark: 5 },
   autoContrast: true,
+  variantColorResolver,
   defaultRadius: 'md',
   white: 'oklch(98% 0.01 150)',
   colors: {

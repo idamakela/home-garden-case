@@ -1,3 +1,4 @@
+import { Anchor } from '@mantine/core';
 import { Link } from 'react-router';
 import styles from './SiteHeader.module.css';
 
@@ -6,12 +7,26 @@ export function SiteHeader() {
     <header className={styles.root}>
       <p className={styles.name}>Home Garden</p>
       <nav className={styles.nav} aria-label="Main">
-        <Link to="/gardens" reloadDocument className={styles.link}>
+        <Anchor
+          component={Link}
+          to="/gardens"
+          reloadDocument
+          className={styles.link}
+          c="inherit"
+          underline="never"
+        >
           Gardens
-        </Link>
-        <Link to="/my-garden" reloadDocument className={styles.link}>
+        </Anchor>
+        <Anchor
+          component={Link}
+          to="/my-garden"
+          reloadDocument
+          className={styles.link}
+          c="inherit"
+          underline="never"
+        >
           My Garden
-        </Link>
+        </Anchor>
       </nav>
     </header>
   );

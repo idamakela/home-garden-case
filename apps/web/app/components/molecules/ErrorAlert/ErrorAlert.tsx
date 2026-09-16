@@ -11,7 +11,7 @@ export function ErrorAlert({ error, details, onRetry }: ErrorAlertProps) {
     <Alert color="red" title={error}>
       <Stack gap="sm" align="flex-start">
         {details}
-          <Button color='black' variant="outline" size="xs" type="button" onClick={onRetry}>
+        <Button variant="outline" size="xs" type="button" onClick={onRetry}>
           Try again
         </Button>
       </Stack>
