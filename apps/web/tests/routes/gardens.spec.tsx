@@ -1442,6 +1442,43 @@ test('user can see how much garden surface area plants use', async () => {
   expect(await screen.findByText('2m² of 12m² currently used')).toBeTruthy();
 });
 
+test('user can shrink a garden below plant usage and is told plants are overcrowded', async () => {
+  const updated: Garden = {
+    ...garden,
+    totalSurfaceArea: 1,
+    updatedAt: '2026-01-03T00:00:00.000Z',
+  };
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: (gardenId, body) => {
+      expect(gardenId).toBe(1);
+      expect(body.totalSurfaceArea).toBe(1);
+      return jsonResponse(updated);
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  expect(await screen.findByText('2m² of 12m² currently used')).toBeTruthy();
+  expect(screen.queryByText('Plants are overcrowded')).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Total surface area/), {
+    target: { value: '1' },
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Update garden' }));
+
+  expect(await screen.findByText('2m² of 1m² currently used')).toBeTruthy();
+  expect(screen.getByText('Plants are overcrowded')).toBeTruthy();
+  expect(
+    screen.getByText(
+      'These plants need 2m² but this garden is only 1m². Remove plants or increase the garden surface area.',
+    ),
+  ).toBeTruthy();
+});
+
 test('user cannot add a plant that needs more surface area than the garden has left', async () => {
   const plantationDateLocal = '2026-04-01T09:30';
 

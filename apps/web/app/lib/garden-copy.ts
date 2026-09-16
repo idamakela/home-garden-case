@@ -123,3 +123,13 @@ export function gardensDeleteCopy(
     message: 'Please try again.',
   };
 }
+
+export function gardensOvercrowdedCopy(
+  used: number,
+  total: number,
+): { title: string; message: string } {
+  return {
+    title: 'Plants are overcrowded',
+    message: `These plants need ${used}m² but this garden is only ${total}m². Remove plants or increase the garden surface area.`,
+  };
+}

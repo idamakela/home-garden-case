@@ -3,6 +3,7 @@ import {
   gardensCreateCopy,
   gardensDeleteCopy,
   gardensLoadCopy,
+  gardensOvercrowdedCopy,
   gardensUpdateCopy,
 } from '../../app/lib/garden-copy';
 
@@ -101,5 +102,13 @@ test('gardensDeleteCopy names the garden when provided', () => {
   expect(gardensDeleteCopy(new ApiError(500, 'boom'), 'Front yard')).toEqual({
     title: "Couldn't delete Front yard",
     message: 'The service is temporarily unavailable. Try again.',
+  });
+});
+
+test('gardensOvercrowdedCopy interpolates used and total area', () => {
+  expect(gardensOvercrowdedCopy(2, 1)).toEqual({
+    title: 'Plants are overcrowded',
+    message:
+      'These plants need 2m² but this garden is only 1m². Remove plants or increase the garden surface area.',
   });
 });

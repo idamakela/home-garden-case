@@ -15,7 +15,7 @@ import { PlantList } from '../components/organisms/PlantList/PlantList';
 import { PlantListSkeleton } from '../components/organisms/PlantList/PlantListSkeleton';
 import { GardenDetail } from '../components/templates/GardenDetail/GardenDetail';
 import { GardenDetailSkeleton } from '../components/templates/GardenDetail/GardenDetailSkeleton';
-import { gardensLoadCopy, gardensUpdateCopy } from '../lib/garden-copy';
+import { gardensLoadCopy, gardensOvercrowdedCopy, gardensUpdateCopy } from '../lib/garden-copy';
 import { formatHumidityLevel } from '../lib/garden-humidity';
 import { parseGardenId } from '../lib/garden-id';
 import { plantsCreateCopy, plantsLoadCopy, plantsUpdateCopy } from '../lib/plant-copy';
@@ -503,12 +503,17 @@ export default function GardenDetailPage() {
       plants.data != null
         ? `${used}m² of ${garden.totalSurfaceArea}m² currently used`
         : undefined;
+    const plantsError =
+      plants.data != null && used > garden.totalSurfaceArea
+        ? gardensOvercrowdedCopy(used, garden.totalSurfaceArea)
+        : undefined;
 
     content = (
       <>
         <GardenDetail
           gardenName={garden.gardenName}
           plants={plantsContent}
+          plantsError={plantsError}
           plantsSubtitle={plantsSubtitle}
           pending={pendingUpdate != null}
           actions={
