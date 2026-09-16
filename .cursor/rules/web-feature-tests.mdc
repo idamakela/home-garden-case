@@ -2,7 +2,7 @@
 description: Feature tests for user capabilities in apps/web, plus unit tests for the logic those features depend on. Use when adding or changing garden/plant behavior or their tests.
 globs:
   - apps/web/app/routes/**/*.{ts,tsx}
-  - apps/web/app/queries/**/*.ts
+  - apps/web/app/queries/**/*.{ts,tsx}
   - apps/web/tests/**/*.{ts,tsx}
   - apps/web-e2e/**/*.{ts,tsx}
 alwaysApply: false

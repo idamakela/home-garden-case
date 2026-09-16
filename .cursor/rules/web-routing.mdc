@@ -12,13 +12,13 @@ alwaysApply: false
 
 # Routing in apps/web
 
-This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden`. `/gardens` prefetches the garden list in a server `loader` so the first HTML has real data. The page still owns `useQuery` for that cache.
+This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden`. `/gardens` prefetches the garden list in a server `loader` so the first HTML has real data. A custom hook in `app/queries/hooks/` reads that cache.
 
 ## Split
 
 | Route | Kind | Data |
 | --- | --- | --- |
-| `/gardens` | MPA document | Server `loader` `query` + `dehydrate`. Page `useQuery` / `useMutation` |
+| `/gardens` | MPA document | Server `loader` `query` + `dehydrate`. Custom hook `useQuery` / `useMutation` |
 | `/gardens/:id` | Nested client route | Same layout loader on document load (gardens + plants when id valid). Client nav skips loader revalidation |
 | `/my-garden` | MPA | Static stub. No server `loader` |
 
@@ -32,7 +32,7 @@ This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden
 - Use `Link` with `reloadDocument` between `/gardens` and `/my-garden`
 - Prefetch the garden list in the `/gardens` server `loader` (`dehydrate` / `HydrationBoundary`); prefetch plants there too when `:gardenId` is on the URL
 - Use `shouldRevalidate: false` for GET navigations within `/gardens` so list ↔ detail is not blocked by the slow loader
-- Fetch gardens/plants with `useQuery` in the gardens pages after that hydrate
+- Fetch gardens/plants with query hooks after that hydrate
 - Keep `/my-garden` static until the feature is implemented
 
 **Don't**

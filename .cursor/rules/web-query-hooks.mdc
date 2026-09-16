@@ -1,0 +1,52 @@
+---
+description: TanStack Query useQuery/useMutation live only in one-hook-per-file custom hooks. Use when adding queries, mutations, or wiring API data in apps/web.
+globs:
+  - apps/web/app/queries/hooks/**/*.{ts,tsx}
+  - apps/web/app/queries/**/*.ts
+  - apps/web/app/routes/**/*.{ts,tsx}
+  - apps/web/app/components/**/*.{ts,tsx}
+  - apps/web/tests/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Query hooks in apps/web
+
+Call `useQuery`, `useMutation`, `useInfiniteQuery`, and `useSuspenseQuery` only in custom hooks under `apps/web/app/queries/hooks/`. One exported hook per file; the filename matches the hook (`useGardens.ts` exports `useGardens`).
+
+Keep keys, `queryOptions`, and `api()` wrappers in `app/queries/*`. Hooks wrap those factories. Loaders may still `queryClient.query(*Query())` — that is not a React hook.
+
+Pages call the custom hooks and pass results into organisms. Never import TanStack Query data hooks in routes or `app/components/`. `useQueryClient` used for cache writes lives in the mutation hook.
+
+## Agent do / don't
+
+**Do**
+
+- Put each hook in `app/queries/hooks/useSomething.ts` (or `.tsx` if the hook renders JSX)
+- Wrap `useQuery(gardensQuery())` in `useGardens`, `useMutation` in `useCreateGarden`, and so on
+- Call those hooks from pages; pass `data` / callbacks as props
+
+**Don't**
+
+- Call `useQuery` / `useMutation` in a route, atom, molecule, organism, or template
+- Export more than one hook from a file
+- Put `queryOptions` or `api()` wrappers inside the hook file
+- Use `useQueryClient` in a page to patch cache after a mutation
+
+## Good / bad
+
+```tsx
+// apps/web/app/queries/hooks/useGardens.ts
+export function useGardens() {
+  return useQuery(gardensQuery());
+}
+
+// apps/web/app/routes/gardens-index.tsx
+const { data, isPending, isError, refetch } = useGardens();
+```
+
+```tsx
+// Bad — data hook in a page or component
+export default function GardensIndexPage() {
+  const { data } = useQuery(gardensQuery());
+}
+```

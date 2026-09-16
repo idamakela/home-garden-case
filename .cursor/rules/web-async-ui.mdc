@@ -2,6 +2,7 @@
 description: Loading skeletons, empty states, and user-facing errors for apps/web. Use when fetching, mutating, or rendering async UI. Capability tests belong in web-feature-tests.mdc.
 globs:
   - apps/web/app/routes/**/*.tsx
+  - apps/web/app/queries/hooks/**/*.{ts,tsx}
   - apps/web/app/components/**/*Skeleton*
   - apps/web/tests/**/*.tsx
   - apps/web-e2e/**/*.{ts,tsx}
@@ -10,7 +11,7 @@ alwaysApply: false
 
 # Loading, empty, and error UI in apps/web
 
-Document routes should put success, empty, and load-error UI in the **first HTML**. Skeletons are only for `isPending` when there is no dehydrated data. Pages own `useQuery`. Prefer Mantine `Skeleton`, `Alert`, `Loader`, and notifications.
+Document routes should put success, empty, and load-error UI in the **first HTML**. Skeletons are only for `isPending` when there is no dehydrated data. Pages call query hooks. Prefer Mantine `Skeleton`, `Alert`, `Loader`, and notifications.
 
 ## Required states
 
@@ -53,7 +54,7 @@ Document routes should put success, empty, and load-error UI in the **first HTML
 
 ```tsx
 function GardensPanel() {
-  const { data, isPending, isError, refetch } = useQuery(gardensQuery());
+  const { data, isPending, isError, refetch } = useGardens();
   if (isPending) return <GardenListSkeleton />;
   if (isError && !data) {
     return (

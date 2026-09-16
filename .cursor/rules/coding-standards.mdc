@@ -3,7 +3,7 @@ description: SOLID and Clean Code for apps/web and apps/web-e2e. Use when writin
 globs:
   - apps/web/app/components/**/*.{ts,tsx}
   - apps/web/app/routes/**/*.{ts,tsx}
-  - apps/web/app/queries/**/*.ts
+  - apps/web/app/queries/**/*.{ts,tsx}
   - apps/web/app/lib/query-client.ts
   - apps/web/app/root.tsx
   - apps/web/app/routes.tsx
@@ -15,11 +15,11 @@ alwaysApply: false
 
 # SOLID and Clean Code
 
-Structure types, functions, and modules so each has one job. Formatting is Prettier (single quotes, printWidth 100) and ESLint. Pages own `useQuery`; document routes also own the matching `loader` prefetch. Atoms do not fetch. Query wrappers use `api()` and `<httpMethod><Resource>` names (`getGardens`, `postGarden`). Do not invent API endpoints; use the Home Garden API skill.
+Structure types, functions, and modules so each has one job. Formatting is Prettier (single quotes, printWidth 100) and ESLint. Custom hooks in `app/queries/hooks/` own `useQuery` / `useMutation`; document routes also own the matching `loader` prefetch. Atoms do not fetch. Query wrappers use `api()` and `<httpMethod><Resource>` names (`getGardens`, `postGarden`). Do not invent API endpoints; use the Home Garden API skill.
 
 ## SOLID
 
-- **SRP** — a page wires data and a template; a query module owns keys and `queryOptions`; a document route owns the `loader` prefetch; a component renders props. Do not fetch inside an atom.
+- **SRP** — a page wires hook results and a template; a query hook owns `useQuery` / `useMutation`; a query module owns keys and `queryOptions`; a document route owns the `loader` prefetch; a component renders props. Do not fetch inside an atom.
 - **OCP** — extend with a new query, component, or route. Do not grow one helper into a god module.
 - **LSP** — subtypes and wrappers must be safe substitutes. No extra required setup.
 - **ISP** — React props list only what the component uses. Function args stay small; more than two: group in a typed object.
@@ -37,14 +37,14 @@ Structure types, functions, and modules so each has one job. Formatting is Prett
 **Do**
 
 - Give functions and variables intention-revealing names
-- Keep React components props-driven; fetch in page `useQuery` and document `loader`s
+- Keep React components props-driven; fetch in `app/queries/hooks/` and document `loader`s
 - Name every `api()` wrapper `<httpMethod><Resource>`
 
 **Don't**
 
 - Swallow errors with empty `catch`
 - Pass unused props, or a god `options: any`
-- `useQuery` / `fetch` in atoms, molecules, or templates
+- `useQuery` / `useMutation` / `fetch` in pages, atoms, molecules, or templates
 
 ## Good / bad
 

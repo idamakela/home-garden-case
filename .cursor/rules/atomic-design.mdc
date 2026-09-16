@@ -20,7 +20,7 @@ Atomic Design is not a waterfall. Zoom into a component, then step back to the p
 | Molecule | A small group of atoms with one job | Section-level layout, route data |
 | Organism | A distinct section: header, plant list | Route loaders, URL params |
 | Template | Page skeleton and slots | Fetching, domain records, real copy |
-| Page | Route module: data, wiring a template | New atoms invented inline |
+| Page | Route module: call query hooks, wire a template | New atoms invented inline |
 
 When unsure, go **one level lower** and compose up.
 
@@ -35,6 +35,8 @@ apps/web/app/
     molecules/
     organisms/
     templates/
+  queries/
+    hooks/
   routes/
     gardens.tsx
     my-garden.tsx
@@ -51,7 +53,7 @@ pages → templates → organisms → molecules → atoms
 ```
 
 - Lower layers never import higher layers. Atoms never import other app components.
-- Pages own `useQuery`. Never `useQuery`/`useMutation` or `fetch` in atoms, molecules, or templates.
+- Pages call hooks in `app/queries/hooks/`. Never `useQuery`/`useMutation` or `fetch` in routes, atoms, molecules, or templates.
 - Do not import another component's `.module.css`.
 
 ## Component-first workflow
@@ -67,13 +69,13 @@ pages → templates → organisms → molecules → atoms
 **Do**
 
 - Search `@mantine/core` and existing components before creating new ones
-- Keep route modules thin: load data, pass props, render a template
+- Keep route modules thin: call query hooks, pass props, render a template
 - Extract a molecule when the same atom cluster appears twice
 
 **Don't**
 
 - Implement a feature as one large JSX tree in a route module
-- Put `useQuery` in atoms, molecules, or templates
+- Put `useQuery` / `useMutation` in routes, atoms, molecules, or templates
 - Import a molecule from an atom, or a page from a template
 
 ## Good / bad

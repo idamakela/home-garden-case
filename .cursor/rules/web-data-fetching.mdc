@@ -1,7 +1,7 @@
 ---
 description: TanStack Query, api() wrappers, and fetch performance for apps/web. Use when adding queries, mutations, query-client defaults, or routes that load API data.
 globs:
-  - apps/web/app/queries/**/*.ts
+  - apps/web/app/queries/**/*.{ts,tsx}
   - apps/web/app/lib/query-client.ts
   - apps/web/app/routes/**/*.tsx
   - apps/web/tests/**/*.tsx
@@ -10,20 +10,20 @@ alwaysApply: false
 
 # Data fetching in apps/web
 
-Document routes put **real data in the first HTML**. Loaders `query` the same `*Query()` factories, `dehydrate`, and wrap the page in `HydrationBoundary`. The page `useQuery` reads that cache. Skeletons are a fallback when the cache is empty.
+Document routes put **real data in the first HTML**. Loaders `query` the same `*Query()` factories, `dehydrate`, and wrap the page in `HydrationBoundary`. A custom hook `useQuery` reads that cache. Skeletons are a fallback when the cache is empty.
 
-Do not fetch in `useEffect`. Every non-docs API call waits **200–2000ms** and fails **~10%** of the time — keep round trips low. Do not invent URLs; use the Home Garden API skill. Do not disable the API delay/error plugins.
+Do not fetch in `useEffect`. Every non-docs API call waits **200–2000ms** and fails **~10%** of the time — keep round trips low. Do not invent URLs; use the Home Garden API skill. Do not disable the API delay/error plugins. Hook file layout is in `web-query-hooks.mdc`.
 
 ## Ownership
 
 ```
-Document page (/gardens): loader query + dehydrate → HydrationBoundary → page useQuery/useMutation → organism props
+Document page (/gardens): loader query + dehydrate → HydrationBoundary → custom hook useQuery/useMutation → page → organism props
 MPA page (/my-garden): static stub. No loader or query until the feature is implemented
 ```
 
 - Put keys, `queryOptions`, and mutation fns in `app/queries/*`.
-- Call `useQuery` / `useMutation` only in **pages**. Document routes also own the matching `loader`.
-- Pass results into organisms. Never `useQuery` in atoms, molecules, or templates.
+- Call `useQuery` / `useMutation` only in **custom hooks** under `app/queries/hooks/`. Document routes also own the matching `loader`.
+- Pages call those hooks and pass results into organisms. Never `useQuery` in routes or in atoms, molecules, or templates.
 - Use `api()` from `app/lib/api.ts` only. Name wrappers `<httpMethod><Resource>` (`getGardens`, `postGarden`). `queryOptions` factories stay `*Query`.
 
 ## QueryClient and round trips
@@ -36,9 +36,9 @@ List queries may set `refetchInterval` for quiet freshness (`GARDENS_REFETCH_INT
 
 Dehydrate **success and error** queries. Do not redact errors. Serialize `ApiError` as `{ name, message, status }` so loader data round-trips.
 
-Create garden: `setQueryData` on `gardenKeys.list()` with the created entity. Do not `invalidateQueries` the list just to refresh — that refetches the slow API and fights SSR plus optimistic rows.
+Create garden: `cancelQueries` the list in `onMutate`, then `setQueryData` on `gardenKeys.list()` with `upsertGardenInList` (replace by `gardenId`, otherwise append). Do not `invalidateQueries` the list just to refresh — that refetches the slow API and fights SSR plus optimistic rows.
 
-Use one list call for a list. Start independent requests together when the id is already in the URL (detail `useQuery` plants enabled by URL id; loader may prefetch plants in parallel with the garden list). Do not fetch per row, waterfall `queryFn`s, or set `staleTime: 0`.
+Use one list call for a list. Start independent requests together when the id is already in the URL (detail hook for plants enabled by URL id; loader may prefetch plants in parallel with the garden list). Do not fetch per row, waterfall `queryFn`s, or set `staleTime: 0`.
 
 Nested `/gardens/:id` is client-navigated. The gardens layout `shouldRevalidate` returns false for intra-`/gardens` GET navigations so the slow loader does not block click/back. React Query owns list freshness (`staleTime` + list `refetchInterval`). Do not put a blocking plants loader on the detail child route. Do not prefetch plants on hover or focus.
 
@@ -49,7 +49,7 @@ Nested `/gardens/:id` is client-navigated. The gardens layout `shouldRevalidate`
 - Prefetch `/gardens` in a server `loader` with `queryClient.query(gardensQuery())`, `dehydrateQueryState`, and `HydrationBoundary`
 - Prefetch plants in that same loader only when `params.gardenId` is valid (document load / deep link)
 - Use `shouldRevalidate: false` for GET moves within `/gardens` so list ↔ detail stays instant
-- Use `useQuery(gardensQuery())` on the gardens page to read that cache
+- Use `useGardens()` on the gardens page to read that cache
 - Use `refetchInterval` on list queries when another session should see new rows without a reload
 - Keep `/my-garden` a static stub until the feature is implemented
 - Name every `api()` wrapper `<httpMethod><Resource>`
@@ -57,7 +57,7 @@ Nested `/gardens/:id` is client-navigated. The gardens layout `shouldRevalidate`
 **Don't**
 
 - `useEffect` + `fetch` / axios
-- `useQuery` below the page layer, or on `/my-garden`
+- `useQuery` / `useMutation` in a route or component, or any query on `/my-garden`
 - Client-only first paint for a document route (skeleton while the list could have been in the HTML)
 - Fetch per row inside a list item
 - Re-run the gardens layout loader on every list ↔ detail click
@@ -91,7 +91,7 @@ export default function GardensPage({
 }
 
 function GardensPanel() {
-  const { data, isPending, isError, refetch } = useQuery(gardensQuery());
+  const { data, isPending, isError, refetch } = useGardens();
   if (isPending) return <GardenListSkeleton />;
   if (isError && !data) {
     return <ErrorAlert error="Couldn't load gardens" details="Please try again." onRetry={() => refetch()} />;
