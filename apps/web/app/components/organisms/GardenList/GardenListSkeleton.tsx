@@ -7,30 +7,28 @@ const PLACEHOLDER_COLUMNS = [0, 1, 2, 3] as const;
 export function GardenListSkeleton() {
   return (
     <section className={styles.root} aria-busy="true" aria-label="Loading gardens">
-      <Table.ScrollContainer minWidth={500}>
-        <Table withTableBorder tabularNums>
-          <Table.Thead>
-            <Table.Tr>
+      <Table withTableBorder tabularNums>
+        <Table.Thead>
+          <Table.Tr>
+            {PLACEHOLDER_COLUMNS.map((column) => (
+              <Table.Th key={column} className={column >= 2 ? styles.desktopOnly : undefined}>
+                <Skeleton height={8} />
+              </Table.Th>
+            ))}
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {PLACEHOLDER_ROWS.map((row) => (
+            <Table.Tr key={row}>
               {PLACEHOLDER_COLUMNS.map((column) => (
-                <Table.Th key={column}>
+                <Table.Td key={column} className={column >= 2 ? styles.desktopOnly : undefined}>
                   <Skeleton height={8} />
-                </Table.Th>
+                </Table.Td>
               ))}
             </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {PLACEHOLDER_ROWS.map((row) => (
-              <Table.Tr key={row}>
-                {PLACEHOLDER_COLUMNS.map((column) => (
-                  <Table.Td key={column}>
-                    <Skeleton height={8} />
-                  </Table.Td>
-                ))}
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+          ))}
+        </Table.Tbody>
+      </Table>
     </section>
   );
 }

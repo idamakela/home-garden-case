@@ -24,32 +24,34 @@ export function GardenList({ gardens }: GardenListProps) {
       {gardens.length === 0 ? (
         <Text className={styles.empty}>No gardens yet. Add one to get started.</Text>
       ) : (
-        <Table.ScrollContainer minWidth={500}>
-          <Table withTableBorder highlightOnHover tabularNums>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Garden name</Table.Th>
-                <Table.Th>Total surface area</Table.Th>
-                <Table.Th>Latitude</Table.Th>
-                <Table.Th>Longitude</Table.Th>
+        <Table withTableBorder highlightOnHover tabularNums>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Garden name</Table.Th>
+              <Table.Th>Total surface area</Table.Th>
+              <Table.Th className={styles.desktopOnly}>Latitude</Table.Th>
+              <Table.Th className={styles.desktopOnly}>Longitude</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {gardens.map((garden) => (
+              <Table.Tr
+                key={garden.id}
+                className={garden.pending ? styles.pending : undefined}
+                aria-busy={garden.pending || undefined}
+              >
+                <Table.Td>{garden.gardenName}</Table.Td>
+                <Table.Td>{garden.totalSurfaceArea}</Table.Td>
+                <Table.Td className={styles.desktopOnly}>
+                  {formatOptionalNumber(garden.latitude)}
+                </Table.Td>
+                <Table.Td className={styles.desktopOnly}>
+                  {formatOptionalNumber(garden.longitude)}
+                </Table.Td>
               </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {gardens.map((garden) => (
-                <Table.Tr
-                  key={garden.id}
-                  className={garden.pending ? styles.pending : undefined}
-                  aria-busy={garden.pending || undefined}
-                >
-                  <Table.Td>{garden.gardenName}</Table.Td>
-                  <Table.Td>{garden.totalSurfaceArea}</Table.Td>
-                  <Table.Td>{formatOptionalNumber(garden.latitude)}</Table.Td>
-                  <Table.Td>{formatOptionalNumber(garden.longitude)}</Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
+            ))}
+          </Table.Tbody>
+        </Table>
       )}
     </section>
   );

@@ -17,6 +17,8 @@ Before adding a custom atom or molecule, check `@mantine/core`. Use Button, Titl
 
 Import Mantine directly, or keep a thin wrapper that only narrows props (like `atoms/Button`). Do not rebuild those controls in CSS Modules.
 
+When a colocated CSS module can hide or restyle at a breakpoint, use that instead of `visibleFrom` / `hiddenFrom`. Those props inject `display: none !important`. This is layout visibility only — do not rebuild Mantine controls in CSS.
+
 The app template `AppShell` is the page skeleton. Mantine `AppShell` is a different layout primitive. Use it only when the header/navbar/aside API is needed.
 
 ## Theme tokens

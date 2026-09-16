@@ -206,8 +206,14 @@ test('renders gardens from the API', async () => {
   expectGardensHeader();
 
   expect(screen.getByRole('columnheader', { name: 'Total surface area' })).toBeTruthy();
-  expect(screen.getByRole('columnheader', { name: 'Latitude' })).toBeTruthy();
-  expect(screen.getByRole('columnheader', { name: 'Longitude' })).toBeTruthy();
+  expect(screen.getByRole('columnheader', { name: 'Latitude' }).className).toMatch(/desktopOnly/);
+  expect(screen.getByRole('columnheader', { name: 'Longitude' }).className).toMatch(/desktopOnly/);
+  expect(screen.getByRole('columnheader', { name: 'Garden name' }).className).not.toMatch(
+    /desktopOnly/,
+  );
+  expect(screen.getByRole('columnheader', { name: 'Total surface area' }).className).not.toMatch(
+    /desktopOnly/,
+  );
   expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
   expect(screen.getByRole('cell', { name: '12' })).toBeTruthy();
   expect(screen.getByRole('cell', { name: '52.37' })).toBeTruthy();

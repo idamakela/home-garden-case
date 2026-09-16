@@ -20,7 +20,8 @@ tokens → reset → shared primitives → colocated component modules
 - Tokens, reset, and primitives live under `styles/`
 - Compose shared primitives **into** components. Never import another component's `.module.css`
 - Modules use `--mantine-*` or semantic aliases in `styles/tokens.css`. No raw hex/rgb/oklch
-- camelCase classes; `composes` first in a rule; no circular `composes`; nesting at most two levels; no IDs or `!important`
+- camelCase classes; `composes` first in a rule; no circular `composes`; nesting at most two levels; no IDs
+- Do not write `!important` unless it is the only way the style can apply. Prefer a different selector, a colocated unlayered module, or dropping the conflicting wrapper before escalating.
 - `:global` only for third-party hooks. Never wrap a whole module in `:global`
 
 Declare `@layer reset, tokens, primitives;` in the global entry. Wrap shared styles in those layers. Leave colocated component modules **unlayered**.
@@ -31,6 +32,7 @@ Declare `@layer reset, tokens, primitives;` in the global entry. Wrap shared sty
 
 - Colocate a module with its component
 - Compose primitives; override in the unlayered local module
+- Hide at a breakpoint with a media query, not `!important`
 - Verify visual changes in the browser
 
 **Don't**
@@ -38,6 +40,7 @@ Declare `@layer reset, tokens, primitives;` in the global entry. Wrap shared sty
 - Add Tailwind, Sass, or CSS-in-JS
 - Import another component's `.module.css`
 - Use unscoped global class names (`.button`, `.wrapper`)
+- Reach for `!important` to beat a Mantine inline variable or `visibleFrom` / `hiddenFrom`
 
 ```css
 .root {
@@ -48,12 +51,24 @@ Declare `@layer reset, tokens, primitives;` in the global entry. Wrap shared sty
 ```
 
 ```css
-/* Bad — sibling-module coupling; kebab-case; :global leak */
+/* Bad — sibling-module coupling; kebab-case; :global leak; !important */
 .cta-button {
   composes: padded from '../Card/Card.module.css';
 }
 
 :global(.button) {
   color: #228b22;
+}
+
+.cell {
+  display: none !important;
+}
+```
+
+```css
+.desktopOnly {
+  @mixin smaller-than $mantine-breakpoint-sm {
+    display: none;
+  }
 }
 ```
