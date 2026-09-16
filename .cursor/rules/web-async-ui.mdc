@@ -3,47 +3,52 @@ description: Loading skeletons, empty states, and user-facing errors for apps/we
 globs:
   - apps/web/app/routes/**/*.tsx
   - apps/web/app/components/**/*Skeleton*
-  - apps/web/tests/**/*.{ts,tsx}
+  - apps/web/tests/**/*.tsx
   - apps/web-e2e/**/*.{ts,tsx}
 alwaysApply: false
 ---
 
 # Loading, empty, and error UI in apps/web
 
-Every async surface must cover pending, empty, and error — not only success. Pages own `useQuery`. Prefer Mantine `Skeleton`, `Alert`, and `Loader`.
+Document routes should put success, empty, and load-error UI in the **first HTML**. Skeletons are only for `isPending` when there is no dehydrated data. Pages own `useQuery`. Prefer Mantine `Skeleton`, `Alert`, `Loader`, and notifications.
 
 ## Required states
 
+- **Document load with cache**: table, empty copy, or load `ErrorAlert` from the loader. Not a skeleton.
 - **Pending, no data** (`isPending`): Mantine `Skeleton` that mirrors the loaded layout. Not a paragraph, spinner, or empty `AppShell`.
-- **Refetch with cache** (`isFetching` and data exists): keep the current UI. Never swap back to a skeleton.
+- **Refetch with cache** (`isFetching` and data exists): keep the current UI. Never swap back to a skeleton. Never swap to `ErrorAlert` on a failed poll when `data` is still there (`isError && !data` only).
 - **Empty** (success, zero items): honest empty copy. Not an error `Alert`.
-- **Error** (`isError` / mutation failure): Mantine `Alert` next to the failed region, plus Retry / `refetch`.
-- **In-flight action** (save, delete): `Loader` or Button `loading` on that control. Not a page skeleton.
+- **List load error** (`isError` and no data): `ErrorAlert` next to the failed region, plus Try again / `refetch`.
+- **Create failure**: notification toast that can restore the form. Not a list `Alert`.
+- **In-flight create**: pending table row with `aria-busy`. Not a page skeleton.
+- **Garden that appears from a poll**: same pending row style briefly (`INCOMING_GARDEN_HIGHLIGHT_MS`), then a normal row. Do not flash the creator’s own `setQueryData` row.
 
 ## User-facing errors
 
-- What happened + what to do (`Could not load gardens.` + Retry).
-- Map `ApiError` status to copy. Never show raw `error.message`, status codes, stacks, or API JSON as the main text.
+- What happened + what to do (`Couldn't load gardens` + Try again).
+- Map `ApiError` (or dehydrated `{ status }`) to copy. Never show raw `error.message`, status codes, stacks, or API JSON as the main text.
 - Do not blame the user. Do not treat empty lists as errors.
-- Validation stays on the field; page and query failures use `Alert`.
+- Validation stays on the field; list load failures use `ErrorAlert`; create failures use a notification.
 
 ## Skeletons and tests
 
 - Colocate a `*Skeleton` with the organism it mirrors. Pages branch; they do not invent skeleton markup inline.
 - Placeholders are inert: no fake readable text or focusable controls.
-- Tests (unit and e2e) for each page that loads data must cover pending, error + retry, empty, and success.
+- Document routes must cover hydrated success (no skeleton) **and** client pending / error + retry / empty / create.
 
 ## Agent do / don't
 
 **Do**
 
-- Branch in the page: skeleton → Alert + Retry → organism
-- Keep cached content on background refetch
-- Write tests for pending, error, empty, and success
+- Ship loader success/empty/load-error in the HTML
+- Branch in the page: skeleton only if the cache is empty → `ErrorAlert` + Try again → organism
+- Keep cached content on background refetch, including a failed poll
+- Write tests for hydrated success and for client pending, error, empty, create, failed refetch, and incoming remote rows
 
 **Don't**
 
 - Render `Loading…` or a spinner as the page pending state
+- Use the page skeleton for in-flight creates
 - Dump `error.message` or API JSON to the user
 - Swap a loaded list back to a skeleton on refetch
 
@@ -51,14 +56,13 @@ Every async surface must cover pending, empty, and error — not only success. P
 function GardensPanel() {
   const { data, isPending, isError, refetch } = useQuery(gardensQuery());
   if (isPending) return <GardenListSkeleton />;
-  if (isError) {
+  if (isError && !data) {
     return (
-      <Alert title="Could not load gardens" color="red">
-        Something went wrong. Try again.
-        <Button variant="primary" onClick={() => refetch()}>
-          Retry
-        </Button>
-      </Alert>
+      <ErrorAlert
+        error="Couldn't load gardens"
+        details="Please try again."
+        onRetry={() => refetch()}
+      />
     );
   }
   return <GardenList gardens={data} />;

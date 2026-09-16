@@ -10,33 +10,43 @@ alwaysApply: false
 
 # Data fetching in apps/web
 
-Pages own server state. Do not fetch in `useEffect`. Branch pending / empty / error in the page (Mantine `Skeleton` / `Alert`). Every non-docs API call waits **200–2000ms** and fails **~10%** of the time — keep round trips low. Do not invent URLs; use the Home Garden API skill.
+Document routes put **real data in the first HTML**. Loaders `fetchQuery` the same `*Query()` factories, `dehydrate`, and wrap the page in `HydrationBoundary`. The page `useQuery` reads that cache. Skeletons are a fallback when the cache is empty.
+
+Do not fetch in `useEffect`. Every non-docs API call waits **200–2000ms** and fails **~10%** of the time — keep round trips low. Do not invent URLs; use the Home Garden API skill. Do not disable the API delay/error plugins.
 
 ## Ownership
 
 ```
-SPA page (/gardens): queryOptions → page useQuery/useMutation → organism props
+Document page (/gardens): loader fetchQuery + dehydrate → HydrationBoundary → page useQuery/useMutation → organism props
 MPA page (/my-garden): static stub. No loader or query until the feature is implemented
 ```
 
 - Put keys, `queryOptions`, and mutation fns in `app/queries/*`.
-- Call `useQuery` / `useMutation` only in **SPA pages**.
+- Call `useQuery` / `useMutation` only in **pages**. Document routes also own the matching `loader`.
 - Pass results into organisms. Never `useQuery` in atoms, molecules, or templates.
 - Use `api()` from `app/lib/api.ts` only. Name wrappers `<httpMethod><Resource>` (`getGardens`, `postGarden`). `queryOptions` factories stay `*Query`.
 
 ## QueryClient and round trips
 
-Browser singleton via `getQueryClient()`. New client on the server. Never share a server client across requests.
+Browser singleton via `getQueryClient()`. New client on the server (loader and SSR). Never share a server client across requests.
 
-Default `staleTime` is 60s. `retry: 2` in the app; **`retry: false` in tests**. Mutations `invalidateQueries` the resource parent key (`gardenKeys.all`, `plantKeys.byGarden(id)`).
+Loader QueryClient: `retry: false`. Browser: `staleTime` 60s, `retry: 2`. Tests: **`retry: false`**. Hydration must not refetch the list within `staleTime`.
 
-Use one list call for a list. Start independent requests together (`useQueries`) when the id is already in the URL. Do not fetch per row, waterfall `queryFn`s, set `staleTime: 0`, or disable the API delay/error plugins.
+List queries may set `refetchInterval` for quiet freshness (`GARDENS_REFETCH_INTERVAL_MS` on `/gardens`). Turn it off in tests. `refetchIntervalInBackground: false`. Polling is how other tabs see creates; do not `invalidateQueries` the list after local `setQueryData`.
+
+Dehydrate **success and error** queries. Do not redact errors. Serialize `ApiError` as `{ name, message, status }` so loader data round-trips.
+
+Create garden: `setQueryData` on `gardenKeys.list()` with the created entity. Do not `invalidateQueries` the list just to refresh — that refetches the slow API and fights SSR plus optimistic rows.
+
+Use one list call for a list. Start independent requests together (`useQueries`) when the id is already in the URL. Do not fetch per row, waterfall `queryFn`s, or set `staleTime: 0`.
 
 ## Agent do / don't
 
 **Do**
 
-- Use `useQuery(gardensQuery())` on `/gardens`
+- Prefetch `/gardens` in a server `loader` with `fetchQuery(gardensQuery())`, `dehydrateQueryState`, and `HydrationBoundary`
+- Use `useQuery(gardensQuery())` on the gardens page to read that cache
+- Use `refetchInterval` on list queries when another session should see new rows without a reload
 - Keep `/my-garden` a static stub until the feature is implemented
 - Name every `api()` wrapper `<httpMethod><Resource>`
 
@@ -44,31 +54,48 @@ Use one list call for a list. Start independent requests together (`useQueries`)
 
 - `useEffect` + `fetch` / axios
 - `useQuery` below the page layer, or on `/my-garden`
-- Server-`loader` prefetch + `dehydrate` for gardens
+- Client-only first paint for a document route (skeleton while the list could have been in the HTML)
 - Fetch per row inside a list item
 
 ## Good / bad
 
 ```tsx
+export async function loader() {
+  const queryClient = makeQueryClient({ retry: false });
+  try {
+    await queryClient.fetchQuery(gardensQuery());
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+  }
+  return { dehydratedState: dehydrateQueryState(queryClient) };
+}
+
+export default function GardensPage({
+  loaderData,
+}: {
+  loaderData?: { dehydratedState: DehydratedState };
+}) {
+  return (
+    <HydrationBoundary state={loaderData?.dehydratedState}>
+      <AppShell>
+        <GardensPanel />
+      </AppShell>
+    </HydrationBoundary>
+  );
+}
+
 function GardensPanel() {
   const { data, isPending, isError, refetch } = useQuery(gardensQuery());
   if (isPending) return <GardenListSkeleton />;
-  if (isError) {
-    return (
-      <Alert title="Could not load gardens" color="red">
-        Something went wrong. Try again.
-        <Button variant="primary" onClick={() => refetch()}>
-          Retry
-        </Button>
-      </Alert>
-    );
+  if (isError && !data) {
+    return <ErrorAlert error="Couldn't load gardens" details="Please try again." onRetry={() => refetch()} />;
   }
   return <GardenList gardens={data} />;
 }
 ```
 
 ```tsx
-// Bad — useEffect fetch; per-row query
+// Bad — useEffect fetch; per-row query; no document loader
 function GardenRow({ garden }: { garden: Garden }) {
   const plants = useQuery(plantsByGardenQuery(garden.gardenId));
   return <td>{plants.data?.length}</td>;

@@ -12,13 +12,13 @@ alwaysApply: false
 
 # Routing in apps/web
 
-This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden`. Pages own `useQuery`; do not prefetch garden data in a server `loader`.
+This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden`. `/gardens` prefetches the garden list in a server `loader` so the first HTML has real data. The page still owns `useQuery` for that cache.
 
 ## Split
 
 | Route | Kind | Data |
 | --- | --- | --- |
-| `/gardens` | SPA island | Client `useQuery` only. No server `loader` for garden/plant data |
+| `/gardens` | MPA document | Server `loader` `fetchQuery` + `dehydrate`. Page `useQuery` / `useMutation` |
 | `/my-garden` | MPA | Static stub. No server `loader` |
 
 `/` redirects to `/gardens`. Nested `/gardens/:id` stays client-side later. Do not add more top-level documents without updating this rule.
@@ -29,14 +29,15 @@ This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden
 
 - Keep `ssr: true` in `react-router.config.ts`
 - Use `Link` with `reloadDocument` between `/gardens` and `/my-garden`
-- Fetch gardens/plants with `useQuery` in the gardens page
+- Prefetch the garden list in the `/gardens` server `loader` (`dehydrate` / `HydrationBoundary`)
+- Fetch gardens/plants with `useQuery` in the gardens page after that hydrate
 - Keep `/my-garden` static until the feature is implemented
 
 **Don't**
 
 - Set `ssr: false`
 - Client-navigate between `/gardens` and `/my-garden`
-- Prefetch gardens in a server `loader` (`dehydrate` / `HydrationBoundary`)
+- Skip the gardens `loader` and wait for a client-only first paint
 - Fetch my-garden/user data with `useQuery` or a server `loader`
 
 ```tsx

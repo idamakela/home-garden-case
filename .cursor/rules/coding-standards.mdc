@@ -15,11 +15,11 @@ alwaysApply: false
 
 # SOLID and Clean Code
 
-Structure types, functions, and modules so each has one job. Formatting is Prettier (single quotes, printWidth 100) and ESLint. Pages own `useQuery`; atoms do not fetch. Query wrappers use `api()` and `<httpMethod><Resource>` names (`getGardens`, `postGarden`). Do not invent API endpoints; use the Home Garden API skill.
+Structure types, functions, and modules so each has one job. Formatting is Prettier (single quotes, printWidth 100) and ESLint. Pages own `useQuery`; document routes also own the matching `loader` prefetch. Atoms do not fetch. Query wrappers use `api()` and `<httpMethod><Resource>` names (`getGardens`, `postGarden`). Do not invent API endpoints; use the Home Garden API skill.
 
 ## SOLID
 
-- **SRP** — a page wires data and a template; a query module owns keys and `queryOptions`; a component renders props. Do not fetch inside an atom.
+- **SRP** — a page wires data and a template; a query module owns keys and `queryOptions`; a document route owns the `loader` prefetch; a component renders props. Do not fetch inside an atom.
 - **OCP** — extend with a new query, component, or route. Do not grow one helper into a god module.
 - **LSP** — subtypes and wrappers must be safe substitutes. No extra required setup.
 - **ISP** — React props list only what the component uses. Function args stay small; more than two: group in a typed object.
@@ -37,7 +37,7 @@ Structure types, functions, and modules so each has one job. Formatting is Prett
 **Do**
 
 - Give functions and variables intention-revealing names
-- Keep React components props-driven; fetch in SPA pages
+- Keep React components props-driven; fetch in page `useQuery` and document `loader`s
 - Name every `api()` wrapper `<httpMethod><Resource>`
 
 **Don't**
