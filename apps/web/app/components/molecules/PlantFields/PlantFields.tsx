@@ -9,6 +9,7 @@ export type PlantFieldsProps = {
   plantationDate: string;
   created: string;
   updated: string;
+  pending?: boolean;
 };
 
 export function PlantFields({
@@ -19,6 +20,7 @@ export function PlantFields({
   plantationDate,
   created,
   updated,
+  pending = false,
 }: PlantFieldsProps) {
   return (
     <Paper
@@ -27,7 +29,8 @@ export function PlantFields({
       p="md"
       withBorder
       bg="var(--mantine-color-white)"
-      className={styles.root}
+      className={pending ? `${styles.root} ${styles.pending}` : styles.root}
+      aria-busy={pending || undefined}
     >
       <DataList orientation="vertical" size="sm" gap="md" className={styles.list}>
         <DataList.Item>

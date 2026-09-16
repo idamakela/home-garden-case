@@ -21,6 +21,7 @@ Document routes should put success, empty, and load-error UI in the **first HTML
 - **Empty** (success, zero items): honest empty copy. Not an error `Alert`.
 - **List load error** (`isError` and no data): `ErrorAlert` next to the failed region, plus Try again / `refetch`.
 - **Create failure**: notification toast that can restore the form. Not a list `Alert`.
+- **Plant update failure**: inline `ErrorAlert` in the plant detail modal, plus Try again that retries the same PUT. Not a toast. Not a plants-list refetch.
 - **In-flight create**: pending table row with `aria-busy`. Not a page skeleton.
 - **Garden that appears from a poll**: same pending row style briefly (`INCOMING_GARDEN_HIGHLIGHT_MS`), then a normal row. Do not flash the creator’s own `setQueryData` row.
 
@@ -29,7 +30,7 @@ Document routes should put success, empty, and load-error UI in the **first HTML
 - What happened + what to do (`Couldn't load gardens` + Try again).
 - Map `ApiError` (or dehydrated `{ status }`) to copy. Never show raw `error.message`, status codes, stacks, or API JSON as the main text.
 - Do not blame the user. Do not treat empty lists as errors.
-- Validation stays on the field; list load failures use `ErrorAlert`; create failures use a notification.
+- Validation stays on the field; list load failures use `ErrorAlert`; plant update failures use `ErrorAlert` in the detail modal; create failures use a notification.
 
 ## Skeletons
 

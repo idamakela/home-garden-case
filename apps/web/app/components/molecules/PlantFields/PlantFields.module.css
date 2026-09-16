@@ -24,3 +24,8 @@
 .capitalized {
   text-transform: capitalize;
 }
+
+.pending {
+  opacity: 0.6;
+  pointer-events: none;
+}

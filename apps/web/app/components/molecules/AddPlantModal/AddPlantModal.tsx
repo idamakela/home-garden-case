@@ -64,7 +64,6 @@ type AddPlantModalProps = {
   initialValues?: CreatePlant | null;
   title?: string;
   submitLabel?: string;
-  submitDisabled?: boolean;
   zIndex?: number;
 };
 
@@ -174,7 +173,6 @@ export function AddPlantModal({
   initialValues = null,
   title,
   submitLabel = 'Add plant',
-  submitDisabled = false,
   zIndex,
 }: AddPlantModalProps) {
   const [values, setValues] = useState<PlantFormValues>(emptyFormValues);
@@ -191,10 +189,6 @@ export function AddPlantModal({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (submitDisabled) {
-      return;
-    }
 
     const parsed = createPlantSchema.safeParse(toCreatePlantInput(values, gardenId));
 
@@ -296,9 +290,7 @@ export function AddPlantModal({
             <Button type="button" variant="default" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitDisabled}>
-              {submitLabel}
-            </Button>
+            <Button type="submit">{submitLabel}</Button>
           </ModalActions>
         </Stack>
       </form>

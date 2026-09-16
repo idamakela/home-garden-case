@@ -9,7 +9,7 @@ import {
   type Garden,
   type UpdateGarden,
 } from '../../app/queries/gardens';
-import type { CreatePlant, Plant } from '../../app/queries/plants';
+import type { CreatePlant, Plant, UpdatePlant } from '../../app/queries/plants';
 import GardenDetailPage from '../../app/routes/garden-detail';
 import GardensLayout, { loader as gardensLoader, shouldRevalidate } from '../../app/routes/gardens';
 import GardensIndexPage from '../../app/routes/gardens-index';
@@ -55,7 +55,7 @@ function stubGardensApi(handlers: {
   delete?: (gardenId: number) => Promise<Response> | Response;
   plantsByGarden?: (gardenId: number) => Promise<Response> | Response;
   createPlant?: (body: CreatePlant) => Promise<Response> | Response;
-  updatePlant?: (plantId: number) => Promise<Response> | Response;
+  updatePlant?: (plantId: number, body: UpdatePlant) => Promise<Response> | Response;
   deletePlant?: (plantId: number) => Promise<Response> | Response;
 }) {
   vi.stubGlobal(
@@ -82,8 +82,9 @@ function stubGardensApi(handlers: {
       }
 
       if (plantByIdMatch && method === 'PUT') {
+        const body = init?.body ? (JSON.parse(String(init.body)) as UpdatePlant) : undefined;
         return (
-          handlers.updatePlant?.(Number(plantByIdMatch[1])) ??
+          handlers.updatePlant?.(Number(plantByIdMatch[1]), body as UpdatePlant) ??
           new Response('Not found', { status: 404 })
         );
       }
@@ -1317,12 +1318,188 @@ test('user can start updating a plant', async () => {
 
   const updateDialog = await screen.findByRole('dialog', { name: 'Update plant' });
   expect(within(updateDialog).getByLabelText(/Plant name/)).toHaveProperty('value', 'Tomato');
+  expect(within(updateDialog).getByLabelText(/Species/)).toHaveProperty(
+    'value',
+    'Solanum lycopersicum',
+  );
+  expect(within(updateDialog).getByLabelText(/Plant type/)).toHaveProperty('value', 'vegetable');
+  expect(within(updateDialog).getByLabelText(/Surface area required \(m²\)/)).toHaveProperty(
+    'value',
+    '2',
+  );
+  expect(within(updateDialog).getByLabelText(/Ideal humidity level \(%\)/)).toHaveProperty(
+    'value',
+    '70',
+  );
   expect(within(updateDialog).getByRole('button', { name: 'Update plant' })).toHaveProperty(
+    'disabled',
+    false,
+  );
+});
+
+test('user can update a plant', async () => {
+  const updated: Plant = {
+    ...plant,
+    plantName: 'Cherry tomato',
+    updatedAt: '2026-03-16T00:00:00.000Z',
+  };
+  const updateRequest = deferred<Response>();
+  let expectedPlantationDate = '';
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+    updatePlant: (plantId, body) => {
+      expect(plantId).toBe(1);
+      expect(body).toEqual({
+        plantName: 'Cherry tomato',
+        species: 'Solanum lycopersicum',
+        plantType: 'vegetable',
+        plantationDate: expectedPlantationDate,
+        surfaceAreaRequired: 2,
+        idealHumidityLevel: 70,
+        gardenId: 1,
+      });
+      return updateRequest.promise;
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Update plant' }));
+
+  const updateDialog = await screen.findByRole('dialog', { name: 'Update plant' });
+  const plantationDateLocal = (
+    within(updateDialog).getByLabelText(/Plantation date/) as HTMLInputElement
+  ).value;
+  expectedPlantationDate = new Date(plantationDateLocal).toISOString();
+
+  fireEvent.change(within(updateDialog).getByLabelText(/Plant name/), {
+    target: { value: 'Cherry tomato' },
+  });
+  fireEvent.click(within(updateDialog).getByRole('button', { name: 'Update plant' }));
+
+  const pendingDetail = await screen.findByRole('dialog', { name: 'Cherry tomato' });
+  expect(screen.queryByRole('dialog', { name: 'Update plant' })).toBeNull();
+  expect(within(pendingDetail).getByRole('button', { name: 'Update plant' })).toHaveProperty(
     'disabled',
     true,
   );
 
+  updateRequest.resolve(jsonResponse(updated));
+
+  await waitFor(() => {
+    expect(within(pendingDetail).getByRole('button', { name: 'Update plant' })).toHaveProperty(
+      'disabled',
+      false,
+    );
+  });
+});
+
+test('user cannot update a plant with incomplete details', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+    updatePlant: () => {
+      throw new Error('PUT /plants/:plantId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Update plant' }));
+
+  const updateDialog = await screen.findByRole('dialog', { name: 'Update plant' });
+  fireEvent.change(within(updateDialog).getByLabelText(/Plant name/), {
+    target: { value: '' },
+  });
   fireEvent.click(within(updateDialog).getByRole('button', { name: 'Update plant' }));
+
+  expect(screen.getByRole('dialog', { name: 'Update plant' })).toBeTruthy();
+  expect(within(detail).getByRole('heading', { name: 'Tomato' })).toBeTruthy();
+});
+
+test('user is told why a plant was not updated and can try again', async () => {
+  const updated: Plant = {
+    ...plant,
+    plantName: 'Cherry tomato',
+    updatedAt: '2026-03-16T00:00:00.000Z',
+  };
+  let plantsLoaded = false;
+  let shouldFailUpdate = true;
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => {
+      if (plantsLoaded) {
+        throw new Error('GET /plants/garden/:id should not be called again');
+      }
+
+      plantsLoaded = true;
+      return jsonResponse([plant]);
+    },
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+    updatePlant: (plantId, body) => {
+      expect(plantId).toBe(1);
+      expect(body).toEqual({
+        plantName: 'Cherry tomato',
+        species: 'Solanum lycopersicum',
+        plantType: 'vegetable',
+        plantationDate: expect.any(String),
+        surfaceAreaRequired: 2,
+        idealHumidityLevel: 70,
+        gardenId: 1,
+      });
+
+      if (shouldFailUpdate) {
+        shouldFailUpdate = false;
+        return new Response('Internal error JSON {"message":"boom"}', { status: 500 });
+      }
+
+      return jsonResponse(updated);
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Update plant' }));
+
+  const updateDialog = await screen.findByRole('dialog', { name: 'Update plant' });
+  fireEvent.change(within(updateDialog).getByLabelText(/Plant name/), {
+    target: { value: 'Cherry tomato' },
+  });
+  fireEvent.click(within(updateDialog).getByRole('button', { name: 'Update plant' }));
+
+  expect(await within(detail).findByText("Couldn't update this plant")).toBeTruthy();
+  expect(
+    within(detail).getByText('The service is temporarily unavailable. Try again.'),
+  ).toBeTruthy();
+  expect(screen.queryByText(/boom/)).toBeNull();
+  expect(screen.queryByRole('button', { name: /Couldn't update this plant/ })).toBeNull();
+  expect(within(detail).getByRole('heading', { name: 'Tomato' })).toBeTruthy();
+  expect(within(detail).getByRole('button', { name: 'Update plant' })).toHaveProperty(
+    'disabled',
+    false,
+  );
+
+  fireEvent.click(within(detail).getByRole('button', { name: 'Try again' }));
+
+  await waitFor(() => {
+    expect(within(detail).getByRole('heading', { name: 'Cherry tomato' })).toBeTruthy();
+    expect(within(detail).getByRole('button', { name: 'Update plant' })).toHaveProperty(
+      'disabled',
+      false,
+    );
+  });
+  expect(within(detail).queryByText("Couldn't update this plant")).toBeNull();
 });
 
 test('user can confirm they want to delete a plant', async () => {

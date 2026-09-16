@@ -18,13 +18,14 @@ import { GardenDetailSkeleton } from '../components/templates/GardenDetail/Garde
 import { gardensLoadCopy, gardensUpdateCopy } from '../lib/garden-copy';
 import { formatHumidityLevel } from '../lib/garden-humidity';
 import { parseGardenId } from '../lib/garden-id';
-import { plantsCreateCopy, plantsLoadCopy } from '../lib/plant-copy';
+import { plantsCreateCopy, plantsLoadCopy, plantsUpdateCopy } from '../lib/plant-copy';
 import { type Garden, type UpdateGarden } from '../queries/gardens';
 import { useCreatePlant } from '../queries/hooks/useCreatePlant';
 import { useDeleteGarden } from '../queries/hooks/useDeleteGarden';
 import { useGardens } from '../queries/hooks/useGardens';
 import { usePlantsByGarden } from '../queries/hooks/usePlantsByGarden';
 import { useUpdateGarden } from '../queries/hooks/useUpdateGarden';
+import { useUpdatePlant } from '../queries/hooks/useUpdatePlant';
 import { type CreatePlant, type Plant } from '../queries/plants';
 
 export const meta: MetaFunction = () => [{ title: 'Garden · Home Garden' }];
@@ -40,8 +41,24 @@ type PendingPlantAddition = {
   body: CreatePlant;
 };
 
+type PendingPlantUpdate = {
+  clientId: string;
+  plantId: number;
+  body: CreatePlant;
+};
+
+type FailedPlantUpdate = {
+  plantId: number;
+  body: CreatePlant;
+  error: unknown;
+};
+
 function dropPendingPlant(pendingAdditions: PendingPlantAddition[], clientId: string) {
   return pendingAdditions.filter((item) => item.clientId !== clientId);
+}
+
+function dropPendingPlantUpdate(pendingUpdates: PendingPlantUpdate[], clientId: string) {
+  return pendingUpdates.filter((item) => item.clientId !== clientId);
 }
 
 function formatOptional(value: string | number | null | undefined) {
@@ -126,7 +143,10 @@ export default function GardenDetailPage() {
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
   const [restoreValues, setRestoreValues] = useState<UpdateGarden | null>(null);
   const [pendingPlantAdditions, setPendingPlantAdditions] = useState<PendingPlantAddition[]>([]);
+  const [pendingPlantUpdates, setPendingPlantUpdates] = useState<PendingPlantUpdate[]>([]);
   const [restorePlantValues, setRestorePlantValues] = useState<CreatePlant | null>(null);
+  const [restoreUpdatePlantValues, setRestoreUpdatePlantValues] = useState<CreatePlant | null>(null);
+  const [failedPlantUpdate, setFailedPlantUpdate] = useState<FailedPlantUpdate | null>(null);
   const [heldGarden, setHeldGarden] = useState<Garden | undefined>();
   const [removedDialog, setRemovedDialog] = useState({ opened: false, canStay: true });
   const ownDeleteRef = useRef(false);
@@ -144,6 +164,7 @@ export default function GardenDetailPage() {
   const updateGarden = useUpdateGarden();
   const deleteGarden = useDeleteGarden();
   const createPlant = useCreatePlant();
+  const updatePlant = useUpdatePlant();
   const remotelyRemoved =
     !ownDeleteRef.current &&
     gardenId != null &&
@@ -191,6 +212,14 @@ export default function GardenDetailPage() {
     setRestorePlantValues(null);
   }
 
+  function openUpdatePlant() {
+    updatePlantModal.open();
+  }
+
+  function closeUpdatePlantModal() {
+    updatePlantModal.close();
+  }
+
   function openPlant(id: string) {
     const plant = plants.data?.find((item) => String(item.plantId) === id);
 
@@ -199,19 +228,23 @@ export default function GardenDetailPage() {
     }
 
     setSelectedPlant(plant);
-    updatePlantModal.close();
+    closeUpdatePlantModal();
     deletePlantModal.close();
   }
 
   function closePlantDetail() {
     setSelectedPlant(null);
-    updatePlantModal.close();
+    setFailedPlantUpdate(null);
+    setRestoreUpdatePlantValues(null);
+    closeUpdatePlantModal();
     deletePlantModal.close();
   }
 
   function confirmDeletePlant() {
     deletePlantModal.close();
     setSelectedPlant(null);
+    setFailedPlantUpdate(null);
+    setRestoreUpdatePlantValues(null);
   }
 
   function submitUpdate(body: UpdateGarden) {
@@ -316,6 +349,35 @@ export default function GardenDetailPage() {
     });
   }
 
+  function submitUpdatePlant(body: CreatePlant) {
+    if (selectedPlant == null) {
+      return;
+    }
+
+    const plantId = selectedPlant.plantId;
+    const clientId = crypto.randomUUID();
+    setPendingPlantUpdates((current) => [...current, { clientId, plantId, body }]);
+    setFailedPlantUpdate(null);
+    setRestoreUpdatePlantValues(null);
+    updatePlantModal.close();
+    updatePlant.mutate(
+      { plantId, body },
+      {
+        onSuccess: (plant) => {
+          setPendingPlantUpdates((current) => dropPendingPlantUpdate(current, clientId));
+          setSelectedPlant((current) => (current?.plantId === plant.plantId ? plant : current));
+          setFailedPlantUpdate(null);
+          setRestoreUpdatePlantValues(null);
+        },
+        onError: (mutationError) => {
+          setPendingPlantUpdates((current) => dropPendingPlantUpdate(current, clientId));
+          setFailedPlantUpdate({ plantId, body, error: mutationError });
+          setRestoreUpdatePlantValues(body);
+        },
+      },
+    );
+  }
+
   function confirmDelete() {
     if (gardenId == null) {
       return;
@@ -370,15 +432,21 @@ export default function GardenDetailPage() {
       );
     } else {
       const plantRows = [
-        ...(plants.data ?? []).map((plant) => ({
-          id: String(plant.plantId),
-          plantName: plant.plantName,
-          surfaceAreaRequired: plant.surfaceAreaRequired,
-          idealHumidityLevel: plant.idealHumidityLevel,
-          species: plant.species,
-          plantType: plant.plantType,
-          plantationDate: formatDateTime(plant.plantationDate),
-        })),
+        ...(plants.data ?? []).map((plant) => {
+          const pending = pendingPlantUpdates.find((item) => item.plantId === plant.plantId);
+          const source = pending ? { ...plant, ...pending.body } : plant;
+
+          return {
+            id: String(plant.plantId),
+            plantName: source.plantName,
+            surfaceAreaRequired: source.surfaceAreaRequired,
+            idealHumidityLevel: source.idealHumidityLevel,
+            species: source.species,
+            plantType: source.plantType,
+            plantationDate: formatDateTime(source.plantationDate),
+            pending: pending != null,
+          };
+        }),
         ...pendingPlantAdditions.map((pending) => ({
           id: `pending-${pending.clientId}`,
           plantName: pending.body.plantName,
@@ -393,6 +461,22 @@ export default function GardenDetailPage() {
 
       plantsContent = <PlantList plants={plantRows} onOpenPlant={openPlant} />;
     }
+
+    const pendingSelectedUpdate = selectedPlant
+      ? pendingPlantUpdates.find((item) => item.plantId === selectedPlant.plantId)
+      : undefined;
+    const displayedSelectedPlant = selectedPlant
+      ? pendingSelectedUpdate
+        ? { ...selectedPlant, ...pendingSelectedUpdate.body }
+        : selectedPlant
+      : null;
+    const plantUpdateError =
+      failedPlantUpdate != null &&
+      selectedPlant != null &&
+      failedPlantUpdate.plantId === selectedPlant.plantId &&
+      pendingSelectedUpdate == null
+        ? plantsUpdateCopy(failedPlantUpdate.error)
+        : null;
 
     content = (
       <>
@@ -435,26 +519,31 @@ export default function GardenDetailPage() {
         />
         <AddPlantModal
           opened={updatePlantOpened}
-          onClose={updatePlantModal.close}
-          onSubmit={() => undefined}
+          onClose={closeUpdatePlantModal}
+          onSubmit={submitUpdatePlant}
           gardenId={garden.gardenId}
           gardenName={garden.gardenName}
-          initialValues={selectedPlant ? toCreatePlant(selectedPlant) : null}
+          initialValues={
+            restoreUpdatePlantValues ?? (selectedPlant ? toCreatePlant(selectedPlant) : null)
+          }
           title="Update plant"
           submitLabel="Update plant"
-          submitDisabled
           zIndex={400}
         />
-        {selectedPlant ? (
+        {displayedSelectedPlant ? (
           <PlantDetailModal
             opened
             onClose={closePlantDetail}
-            plantName={selectedPlant.plantName}
+            plantName={displayedSelectedPlant.plantName}
             closeOnEscape={!updatePlantOpened && !deletePlantOpened}
             closeOnClickOutside={!updatePlantOpened && !deletePlantOpened}
             actions={
               <Group gap="sm">
-                <Button type="button" onClick={updatePlantModal.open}>
+                <Button
+                  type="button"
+                  onClick={openUpdatePlant}
+                  disabled={pendingSelectedUpdate != null}
+                >
                   Update plant
                 </Button>
                 <Button type="button" variant="default" onClick={deletePlantModal.open}>
@@ -462,7 +551,21 @@ export default function GardenDetailPage() {
                 </Button>
               </Group>
             }
-            {...plantFields(selectedPlant)}
+            {...plantFields(displayedSelectedPlant)}
+            pending={pendingSelectedUpdate != null}
+            error={
+              plantUpdateError ? (
+                <ErrorAlert
+                  error={plantUpdateError.title}
+                  details={plantUpdateError.message}
+                  onRetry={() => {
+                    if (failedPlantUpdate) {
+                      submitUpdatePlant(failedPlantUpdate.body);
+                    }
+                  }}
+                />
+              ) : undefined
+            }
           />
         ) : null}
         <DeleteGardenModal

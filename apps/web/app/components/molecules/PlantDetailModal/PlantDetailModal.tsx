@@ -8,6 +8,7 @@ type PlantDetailModalProps = PlantFieldsProps & {
   onClose: () => void;
   plantName: string;
   actions?: ReactNode;
+  error?: ReactNode;
   closeOnEscape?: boolean;
   closeOnClickOutside?: boolean;
 };
@@ -17,6 +18,7 @@ export function PlantDetailModal({
   onClose,
   plantName,
   actions,
+  error,
   closeOnEscape = true,
   closeOnClickOutside = true,
   ...fields
@@ -40,7 +42,10 @@ export function PlantDetailModal({
           <Modal.CloseButton />
         </Modal.Header>
         <Modal.Body>
-          <PlantFields {...fields} />
+          <Stack gap="md">
+            {error}
+            <PlantFields {...fields} />
+          </Stack>
         </Modal.Body>
       </Modal.Content>
     </Modal.Root>
