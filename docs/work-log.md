@@ -1,5 +1,10 @@
 # Work log
 
+## 2026-09-16 — garden min/max humidity
+
+- Prompt: Add optional `minHumidity` and `maxHumidity` (0–100, nullable) to the garden data model and garden API schemas, including the DB migration.
+- Done: Extended garden types and Zod create/update/response schemas with a min≤max refine, and added migration002 for the new SQLite columns.
+
 ## 2026-09-16 — isbot and jiti
 
 - Prompt: Why are the `isbot` and `jiti` packages needed?
