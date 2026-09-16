@@ -8,6 +8,15 @@
   color: var(--color-text);
 }
 
+.pending {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.capitalized {
+  text-transform: capitalize;
+}
+
 .desktopOnly {
   @mixin smaller-than $mantine-breakpoint-sm {
     display: none;

@@ -9,6 +9,7 @@ export type PlantListItem = {
   species: string;
   plantType: string;
   plantationDate: string;
+  pending?: boolean;
 };
 
 type PlantListProps = {
@@ -34,12 +35,20 @@ export function PlantList({ plants }: PlantListProps) {
           </Table.Thead>
           <Table.Tbody>
             {plants.map((plant) => (
-              <Table.Tr key={plant.id}>
-                <Table.Td>{plant.plantName}</Table.Td>
+              <Table.Tr
+                key={plant.id}
+                className={plant.pending ? styles.pending : undefined}
+                aria-busy={plant.pending || undefined}
+              >
+                <Table.Td className={styles.capitalized}>{plant.plantName}</Table.Td>
                 <Table.Td>{plant.surfaceAreaRequired}</Table.Td>
                 <Table.Td>{plant.idealHumidityLevel}</Table.Td>
-                <Table.Td className={styles.desktopOnly}>{plant.species}</Table.Td>
-                <Table.Td className={styles.desktopOnly}>{plant.plantType}</Table.Td>
+                <Table.Td className={`${styles.desktopOnly} ${styles.capitalized}`}>
+                  {plant.species}
+                </Table.Td>
+                <Table.Td className={`${styles.desktopOnly} ${styles.capitalized}`}>
+                  {plant.plantType}
+                </Table.Td>
                 <Table.Td className={styles.desktopOnly}>{plant.plantationDate}</Table.Td>
               </Table.Tr>
             ))}

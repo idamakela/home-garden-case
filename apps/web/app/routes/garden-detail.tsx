@@ -4,6 +4,7 @@ import { notifications } from '@mantine/notifications';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, type MetaFunction } from 'react-router';
 import { AddGardenModal } from '../components/molecules/AddGardenModal/AddGardenModal';
+import { AddPlantModal } from '../components/molecules/AddPlantModal/AddPlantModal';
 import { BackLink } from '../components/molecules/BackLink/BackLink';
 import { DeleteGardenModal } from '../components/molecules/DeleteGardenModal/DeleteGardenModal';
 import { ErrorAlert } from '../components/molecules/ErrorAlert/ErrorAlert';
@@ -14,12 +15,14 @@ import { GardenDetail } from '../components/templates/GardenDetail/GardenDetail'
 import { GardenDetailSkeleton } from '../components/templates/GardenDetail/GardenDetailSkeleton';
 import { gardensLoadCopy, gardensUpdateCopy } from '../lib/garden-copy';
 import { parseGardenId } from '../lib/garden-id';
-import { plantsLoadCopy } from '../lib/plant-copy';
+import { plantsCreateCopy, plantsLoadCopy } from '../lib/plant-copy';
 import { type Garden, type UpdateGarden } from '../queries/gardens';
+import { useCreatePlant } from '../queries/hooks/useCreatePlant';
 import { useDeleteGarden } from '../queries/hooks/useDeleteGarden';
 import { useGardens } from '../queries/hooks/useGardens';
 import { usePlantsByGarden } from '../queries/hooks/usePlantsByGarden';
 import { useUpdateGarden } from '../queries/hooks/useUpdateGarden';
+import { type CreatePlant } from '../queries/plants';
 
 export const meta: MetaFunction = () => [{ title: 'Garden · Home Garden' }];
 
@@ -28,6 +31,15 @@ type PendingUpdate = {
   gardenId: number;
   body: UpdateGarden;
 };
+
+type PendingPlantAddition = {
+  clientId: string;
+  body: CreatePlant;
+};
+
+function dropPendingPlant(pendingAdditions: PendingPlantAddition[], clientId: string) {
+  return pendingAdditions.filter((item) => item.clientId !== clientId);
+}
 
 function formatOptional(value: string | number | null | undefined) {
   if (value == null || value === '') {
@@ -78,8 +90,11 @@ export default function GardenDetailPage() {
   const gardenId = parseGardenId(gardenIdParam);
   const [updateOpened, updateModal] = useDisclosure(false);
   const [deleteOpened, deleteModal] = useDisclosure(false);
+  const [addPlantOpened, addPlantModal] = useDisclosure(false);
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
   const [restoreValues, setRestoreValues] = useState<UpdateGarden | null>(null);
+  const [pendingPlantAdditions, setPendingPlantAdditions] = useState<PendingPlantAddition[]>([]);
+  const [restorePlantValues, setRestorePlantValues] = useState<CreatePlant | null>(null);
   const [heldGarden, setHeldGarden] = useState<Garden | undefined>();
   const [removedDialog, setRemovedDialog] = useState({ opened: false, canStay: true });
   const ownDeleteRef = useRef(false);
@@ -96,6 +111,7 @@ export default function GardenDetailPage() {
   const plants = usePlantsByGarden(gardenId ?? null);
   const updateGarden = useUpdateGarden();
   const deleteGarden = useDeleteGarden();
+  const createPlant = useCreatePlant();
   const remotelyRemoved =
     !ownDeleteRef.current &&
     gardenId != null &&
@@ -131,6 +147,16 @@ export default function GardenDetailPage() {
   function closeUpdateModal() {
     updateModal.close();
     setRestoreValues(null);
+  }
+
+  function openAddPlant() {
+    setRestorePlantValues(null);
+    addPlantModal.open();
+  }
+
+  function closeAddPlantModal() {
+    addPlantModal.close();
+    setRestorePlantValues(null);
   }
 
   function submitUpdate(body: UpdateGarden) {
@@ -194,6 +220,47 @@ export default function GardenDetailPage() {
     );
   }
 
+  function submitPlant(body: CreatePlant) {
+    const clientId = crypto.randomUUID();
+    setPendingPlantAdditions((current) => [...current, { clientId, body }]);
+    setRestorePlantValues(null);
+    addPlantModal.close();
+    createPlant.mutate(body, {
+      onSuccess: () => {
+        setPendingPlantAdditions((current) => dropPendingPlant(current, clientId));
+      },
+      onError: (mutationError) => {
+        setPendingPlantAdditions((current) => dropPendingPlant(current, clientId));
+        const copy = plantsCreateCopy(mutationError);
+        const notificationId = crypto.randomUUID();
+
+        notifications.show({
+          id: notificationId,
+          autoClose: false,
+          color: 'red',
+          title: copy.title,
+          message: copy.message,
+          renderNotification: () => (
+            <UnstyledButton
+              type="button"
+              display="block"
+              w="100%"
+              onClick={() => {
+                notifications.hide(notificationId);
+                setRestorePlantValues(body);
+                addPlantModal.open();
+              }}
+            >
+              <Notification color="red" title={copy.title} withCloseButton={false} withBorder>
+                {copy.message}
+              </Notification>
+            </UnstyledButton>
+          ),
+        });
+      },
+    });
+  }
+
   function confirmDelete() {
     if (gardenId == null) {
       return;
@@ -247,19 +314,29 @@ export default function GardenDetailPage() {
         <ErrorAlert error={copy.title} details={copy.message} onRetry={() => plants.refetch()} />
       );
     } else {
-      plantsContent = (
-        <PlantList
-          plants={(plants.data ?? []).map((plant) => ({
-            id: String(plant.plantId),
-            plantName: plant.plantName,
-            surfaceAreaRequired: plant.surfaceAreaRequired,
-            idealHumidityLevel: plant.idealHumidityLevel,
-            species: plant.species,
-            plantType: plant.plantType,
-            plantationDate: formatDateTime(plant.plantationDate),
-          }))}
-        />
-      );
+      const plantRows = [
+        ...(plants.data ?? []).map((plant) => ({
+          id: String(plant.plantId),
+          plantName: plant.plantName,
+          surfaceAreaRequired: plant.surfaceAreaRequired,
+          idealHumidityLevel: plant.idealHumidityLevel,
+          species: plant.species,
+          plantType: plant.plantType,
+          plantationDate: formatDateTime(plant.plantationDate),
+        })),
+        ...pendingPlantAdditions.map((pending) => ({
+          id: `pending-${pending.clientId}`,
+          plantName: pending.body.plantName,
+          surfaceAreaRequired: pending.body.surfaceAreaRequired,
+          idealHumidityLevel: pending.body.idealHumidityLevel,
+          species: pending.body.species,
+          plantType: pending.body.plantType,
+          plantationDate: formatDateTime(pending.body.plantationDate),
+          pending: true,
+        })),
+      ];
+
+      plantsContent = <PlantList plants={plantRows} />;
     }
 
     content = (
@@ -278,6 +355,11 @@ export default function GardenDetailPage() {
               </Button>
             </Group>
           }
+          plantsActions={
+            <Button type="button" onClick={openAddPlant}>
+              Add plant
+            </Button>
+          }
           {...gardenFields(garden)}
         />
         <AddGardenModal
@@ -287,6 +369,14 @@ export default function GardenDetailPage() {
           initialValues={restoreValues ?? toUpdateGarden(garden)}
           title="Update garden"
           submitLabel="Update garden"
+        />
+        <AddPlantModal
+          opened={addPlantOpened}
+          onClose={closeAddPlantModal}
+          onSubmit={submitPlant}
+          gardenId={garden.gardenId}
+          gardenName={garden.gardenName}
+          initialValues={restorePlantValues}
         />
         <DeleteGardenModal
           opened={deleteOpened}

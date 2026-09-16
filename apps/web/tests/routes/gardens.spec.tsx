@@ -9,7 +9,7 @@ import {
   type Garden,
   type UpdateGarden,
 } from '../../app/queries/gardens';
-import type { Plant } from '../../app/queries/plants';
+import type { CreatePlant, Plant } from '../../app/queries/plants';
 import GardenDetailPage from '../../app/routes/garden-detail';
 import GardensLayout, { loader as gardensLoader, shouldRevalidate } from '../../app/routes/gardens';
 import GardensIndexPage from '../../app/routes/gardens-index';
@@ -52,6 +52,7 @@ function stubGardensApi(handlers: {
   update?: (gardenId: number, body: UpdateGarden) => Promise<Response> | Response;
   delete?: (gardenId: number) => Promise<Response> | Response;
   plantsByGarden?: (gardenId: number) => Promise<Response> | Response;
+  createPlant?: (body: CreatePlant) => Promise<Response> | Response;
 }) {
   vi.stubGlobal(
     'fetch',
@@ -65,6 +66,13 @@ function stubGardensApi(handlers: {
         return (
           handlers.plantsByGarden?.(Number(plantsMatch[1])) ??
           new Response('Not found', { status: 404 })
+        );
+      }
+
+      if (url.endsWith('/plants') && method === 'POST') {
+        const body = init?.body ? (JSON.parse(String(init.body)) as CreatePlant) : undefined;
+        return (
+          handlers.createPlant?.(body as CreatePlant) ?? new Response('Not found', { status: 404 })
         );
       }
 
@@ -170,6 +178,42 @@ function fillGardenForm(
       target: { value: values.longitude },
     });
   }
+}
+
+async function openAddPlantModal() {
+  fireEvent.click(screen.getByRole('button', { name: 'Add plant' }));
+  return screen.findByRole('dialog');
+}
+
+function fillPlantForm(
+  dialog: HTMLElement,
+  values: {
+    plantName: string;
+    species: string;
+    plantType: string;
+    plantationDate: string;
+    surfaceAreaRequired: string;
+    idealHumidityLevel: string;
+  },
+) {
+  fireEvent.change(within(dialog).getByLabelText(/Plant name/), {
+    target: { value: values.plantName },
+  });
+  fireEvent.change(within(dialog).getByLabelText(/Species/), {
+    target: { value: values.species },
+  });
+  fireEvent.change(within(dialog).getByLabelText(/Plant type/), {
+    target: { value: values.plantType },
+  });
+  fireEvent.change(within(dialog).getByLabelText(/Plantation date/), {
+    target: { value: values.plantationDate },
+  });
+  fireEvent.change(within(dialog).getByLabelText(/Surface area required \(m²\)/), {
+    target: { value: values.surfaceAreaRequired },
+  });
+  fireEvent.change(within(dialog).getByLabelText(/Ideal humidity level \(%\)/), {
+    target: { value: values.idealHumidityLevel },
+  });
 }
 
 afterEach(() => {
@@ -921,4 +965,134 @@ test('user is told someone else deleted the garden they are viewing', async () =
 
   expect(await screen.findByRole('button', { name: 'Add garden' })).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Front yard' })).toBeNull();
+});
+
+test('user can add a plant', async () => {
+  const plantationDateLocal = '2026-04-01T09:30';
+  const created: Plant = {
+    plantId: 2,
+    plantName: 'Basil',
+    species: 'Ocimum basilicum',
+    plantType: 'vegetable',
+    plantationDate: new Date(plantationDateLocal).toISOString(),
+    surfaceAreaRequired: 1,
+    idealHumidityLevel: 55,
+    gardenId: 1,
+    createdAt: '2026-04-01T09:30:00.000Z',
+    updatedAt: '2026-04-01T09:30:00.000Z',
+  };
+  const createRequest = deferred<Response>();
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: (body) => {
+      expect(body).toEqual({
+        plantName: 'Basil',
+        species: 'Ocimum basilicum',
+        plantType: 'vegetable',
+        plantationDate: new Date(plantationDateLocal).toISOString(),
+        surfaceAreaRequired: 1,
+        idealHumidityLevel: 55,
+        gardenId: 1,
+      });
+      return createRequest.promise;
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByText('Tomato');
+
+  const dialog = await openAddPlantModal();
+  expect(within(dialog).getByRole('heading', { name: 'Add plant to Front yard garden' })).toBeTruthy();
+  expect(within(dialog).queryByLabelText(/^Garden ID$/)).toBeNull();
+
+  fillPlantForm(dialog, {
+    plantName: 'Basil',
+    species: 'Ocimum basilicum',
+    plantType: 'vegetable',
+    plantationDate: plantationDateLocal,
+    surfaceAreaRequired: '1',
+    idealHumidityLevel: '55',
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Add plant' }));
+
+  expect(await screen.findByText('Basil')).toBeTruthy();
+
+  createRequest.resolve(jsonResponse(created, 201));
+
+  await waitFor(() => {
+    expect(screen.getAllByText('Basil')).toHaveLength(1);
+  });
+});
+
+test('user cannot add a plant with incomplete details', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByText('Tomato');
+
+  const dialog = await openAddPlantModal();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Add plant' }));
+
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.queryByText('Basil')).toBeNull();
+});
+
+test('user is told why a plant was not added and can restore the form', async () => {
+  const plantationDateLocal = '2026-04-01T09:30';
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => new Response('Internal error JSON {"message":"boom"}', { status: 500 }),
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByText('Tomato');
+
+  const dialog = await openAddPlantModal();
+  fillPlantForm(dialog, {
+    plantName: 'Basil',
+    species: 'Ocimum basilicum',
+    plantType: 'vegetable',
+    plantationDate: plantationDateLocal,
+    surfaceAreaRequired: '1',
+    idealHumidityLevel: '55',
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Add plant' }));
+
+  expect(await screen.findByText("Couldn't add this plant")).toBeTruthy();
+  expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
+  expect(screen.queryByText(/boom/)).toBeNull();
+  expect(screen.queryByText('Basil')).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: /Couldn't add this plant/ }));
+
+  const restored = await screen.findByRole('dialog');
+  expect(
+    within(restored).getByRole('heading', { name: 'Add plant to Front yard garden' }),
+  ).toBeTruthy();
+  expect(within(restored).queryByLabelText(/^Garden ID$/)).toBeNull();
+  expect(within(restored).getByLabelText(/Plant name/)).toHaveProperty('value', 'Basil');
+  expect(within(restored).getByLabelText(/Species/)).toHaveProperty('value', 'Ocimum basilicum');
+  expect(within(restored).getByLabelText(/Plant type/)).toHaveProperty('value', 'vegetable');
+  expect(within(restored).getByLabelText(/Plantation date/)).toHaveProperty(
+    'value',
+    plantationDateLocal,
+  );
+  expect(within(restored).getByLabelText(/Surface area required \(m²\)/)).toHaveProperty(
+    'value',
+    '1',
+  );
+  expect(within(restored).getByLabelText(/Ideal humidity level \(%\)/)).toHaveProperty(
+    'value',
+    '55',
+  );
 });

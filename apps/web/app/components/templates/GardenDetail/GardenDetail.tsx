@@ -13,6 +13,7 @@ type GardenDetailProps = {
   updated: string;
   pending?: boolean;
   actions?: ReactNode;
+  plantsActions?: ReactNode;
   plants: ReactNode;
 };
 
@@ -27,6 +28,7 @@ export function GardenDetail({
   updated,
   pending = false,
   actions,
+  plantsActions,
   plants,
 }: GardenDetailProps) {
   return (
@@ -42,6 +44,9 @@ export function GardenDetail({
         updated={updated}
         pending={pending}
       />
+      <SectionHeader title="Plants" order={2}>
+        {plantsActions}
+      </SectionHeader>
       {plants}
     </>
   );
