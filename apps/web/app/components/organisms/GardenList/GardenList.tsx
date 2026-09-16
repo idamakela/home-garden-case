@@ -1,4 +1,5 @@
-import { Table, Text } from '@mantine/core';
+import { Anchor, Table, Text } from '@mantine/core';
+import { Link } from 'react-router';
 import styles from './GardenList.module.css';
 
 export type GardenListItem = {
@@ -8,6 +9,7 @@ export type GardenListItem = {
   latitude?: number | null;
   longitude?: number | null;
   pending?: boolean;
+  to?: string;
 };
 
 type GardenListProps = {
@@ -16,6 +18,32 @@ type GardenListProps = {
 
 function formatOptionalNumber(value: number | null | undefined) {
   return value == null ? '—' : String(value);
+}
+
+function rowClassName(garden: GardenListItem) {
+  const classNames = [];
+
+  if (garden.to) {
+    classNames.push(styles.clickable);
+  }
+
+  if (garden.pending) {
+    classNames.push(styles.pending);
+  }
+
+  return classNames.length > 0 ? classNames.join(' ') : undefined;
+}
+
+function openGardenFromRow(event: { currentTarget: HTMLElement; target: EventTarget }) {
+  const target = event.target;
+  if (!(target instanceof Element) || target.closest('a')) {
+    return;
+  }
+
+  const link = event.currentTarget.querySelector('a');
+  if (link instanceof HTMLElement) {
+    link.click();
+  }
 }
 
 export function GardenList({ gardens }: GardenListProps) {
@@ -37,10 +65,24 @@ export function GardenList({ gardens }: GardenListProps) {
             {gardens.map((garden) => (
               <Table.Tr
                 key={garden.id}
-                className={garden.pending ? styles.pending : undefined}
+                className={rowClassName(garden)}
                 aria-busy={garden.pending || undefined}
+                onClick={garden.to ? openGardenFromRow : undefined}
               >
-                <Table.Td>{garden.gardenName}</Table.Td>
+                <Table.Td>
+                  {garden.to ? (
+                    <Anchor
+                      component={Link}
+                      to={garden.to}
+                      underline="hover"
+                      className={styles.link}
+                    >
+                      {garden.gardenName}
+                    </Anchor>
+                  ) : (
+                    garden.gardenName
+                  )}
+                </Table.Td>
                 <Table.Td>{garden.totalSurfaceArea}</Table.Td>
                 <Table.Td className={styles.desktopOnly}>
                   {formatOptionalNumber(garden.latitude)}

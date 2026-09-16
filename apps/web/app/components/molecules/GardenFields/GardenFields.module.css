@@ -1,0 +1,22 @@
+.root {
+  margin: 0;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+}
+
+.list :global(.mantine-DataList-itemLabel) {
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-forest-7);
+}
+
+.list :global(.mantine-DataList-itemValue) {
+  font-size: var(--mantine-font-size-sm);
+}
+
+.full {
+  grid-column: 1 / -1;
+}

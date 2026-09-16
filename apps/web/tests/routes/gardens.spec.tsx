@@ -8,7 +8,13 @@ import {
   type CreateGarden,
   type Garden,
 } from '../../app/queries/gardens';
-import GardensPage, { loader as gardensLoader } from '../../app/routes/gardens';
+import type { Plant } from '../../app/queries/plants';
+import GardenDetailPage from '../../app/routes/garden-detail';
+import GardensLayout, {
+  loader as gardensLoader,
+  shouldRevalidate,
+} from '../../app/routes/gardens';
+import GardensIndexPage from '../../app/routes/gardens-index';
 import { renderWithQuery } from '../render-with-query';
 
 const garden: Garden = {
@@ -29,15 +35,37 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+const plant: Plant = {
+  plantId: 1,
+  plantName: 'Tomato',
+  species: 'Solanum lycopersicum',
+  plantType: 'vegetable',
+  plantationDate: '2026-03-15T00:00:00.000Z',
+  surfaceAreaRequired: 2,
+  idealHumidityLevel: 70,
+  gardenId: 1,
+  createdAt: '2026-03-15T00:00:00.000Z',
+  updatedAt: '2026-03-15T00:00:00.000Z',
+};
+
 function stubGardensApi(handlers: {
   list: () => Promise<Response> | Response;
   create?: (body: CreateGarden) => Promise<Response> | Response;
+  plantsByGarden?: (gardenId: number) => Promise<Response> | Response;
 }) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string | URL, init?: RequestInit) => {
       const url = String(input);
       const method = (init?.method ?? 'GET').toUpperCase();
+      const plantsMatch = url.match(/\/plants\/garden\/(\d+)$/);
+
+      if (plantsMatch && method === 'GET') {
+        return (
+          handlers.plantsByGarden?.(Number(plantsMatch[1])) ??
+          new Response('Not found', { status: 404 })
+        );
+      }
 
       if (url.endsWith('/gardens') && method === 'POST') {
         const body = init?.body ? (JSON.parse(String(init.body)) as CreateGarden) : undefined;
@@ -55,27 +83,29 @@ function stubGardensApi(handlers: {
   );
 }
 
-function renderGardensPage() {
-  const ReactRouterStub = createRoutesStub([
-    {
-      path: '/gardens',
-      Component: GardensPage,
-    },
-  ]);
-
-  return renderWithQuery(<ReactRouterStub initialEntries={['/gardens']} />);
+function gardensRoute(options?: { loader?: typeof gardensLoader }) {
+  return {
+    path: '/gardens',
+    Component: GardensLayout,
+    loader: options?.loader,
+    shouldRevalidate,
+    children: [
+      { index: true, Component: GardensIndexPage },
+      { path: ':gardenId', Component: GardenDetailPage },
+    ],
+  };
 }
 
-function renderGardensPageWithLoader() {
-  const ReactRouterStub = createRoutesStub([
-    {
-      path: '/gardens',
-      Component: GardensPage,
-      loader: gardensLoader,
-    },
-  ]);
+function renderGardensPage(initialEntry = '/gardens') {
+  const ReactRouterStub = createRoutesStub([gardensRoute()]);
 
-  return renderWithQuery(<ReactRouterStub initialEntries={['/gardens']} />);
+  return renderWithQuery(<ReactRouterStub initialEntries={[initialEntry]} />);
+}
+
+function renderGardensPageWithLoader(initialEntry = '/gardens') {
+  const ReactRouterStub = createRoutesStub([gardensRoute({ loader: gardensLoader })]);
+
+  return renderWithQuery(<ReactRouterStub initialEntries={[initialEntry]} />);
 }
 
 async function openAddGardenModal() {
@@ -442,4 +472,186 @@ test('user can see a garden added in another session', async () => {
     },
     { timeout: INCOMING_GARDEN_HIGHLIGHT_MS + 500 },
   );
+});
+
+test('user can open a garden and see its details and plants', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: (gardenId) => {
+      expect(gardenId).toBe(1);
+      return jsonResponse([plant]);
+    },
+  });
+
+  renderGardensPage();
+  await screen.findByRole('link', { name: 'Front yard' });
+  fireEvent.click(screen.getByText('12'));
+
+  expect(await screen.findByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+  expect(screen.getByText('1')).toBeTruthy();
+  expect(screen.getByText('12')).toBeTruthy();
+  expect(screen.getByText('52.37')).toBeTruthy();
+  expect(screen.getByText('4.89')).toBeTruthy();
+  expect(await screen.findByText('Tomato')).toBeTruthy();
+  expect(screen.getByText('2')).toBeTruthy();
+  expect(screen.getByText('70')).toBeTruthy();
+  expect(screen.getByText('Solanum lycopersicum')).toBeTruthy();
+  expect(screen.getByText('vegetable')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Add garden' })).toBeNull();
+});
+
+test('user can go back to the gardens list', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+  });
+
+  renderGardensPage();
+  await screen.findByRole('link', { name: 'Front yard' });
+  fireEvent.click(screen.getByRole('link', { name: 'Front yard' }));
+  expect(await screen.findByText('Tomato')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('link', { name: 'back' }));
+
+  expect(await screen.findByRole('button', { name: 'Add garden' })).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Front yard' })).toBeTruthy();
+  expect(screen.queryByText('Tomato')).toBeNull();
+});
+
+test('user is told why plants are missing and can retry', async () => {
+  let shouldFail = true;
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => {
+      if (shouldFail) {
+        shouldFail = false;
+        return new Response('Internal error JSON {"message":"boom"}', { status: 500 });
+      }
+
+      return jsonResponse([plant]);
+    },
+  });
+
+  renderGardensPage();
+  await screen.findByRole('link', { name: 'Front yard' });
+  fireEvent.click(screen.getByRole('link', { name: 'Front yard' }));
+
+  expect(await screen.findByText("Couldn't load plants")).toBeTruthy();
+  expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
+  expect(screen.queryByText(/boom/)).toBeNull();
+  expect(screen.queryByText('Tomato')).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+  expect(await screen.findByText('Tomato')).toBeTruthy();
+});
+
+test('user sees an empty plants list, not an error', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([]),
+  });
+
+  renderGardensPage();
+  await screen.findByRole('link', { name: 'Front yard' });
+  fireEvent.click(screen.getByRole('link', { name: 'Front yard' }));
+
+  expect(await screen.findByText('No plants in this garden yet.')).toBeTruthy();
+  expect(screen.queryByText("Couldn't load plants")).toBeNull();
+});
+
+test('shouldRevalidate skips GET navigations within gardens', () => {
+  const base = {
+    currentParams: {},
+    nextParams: {},
+    defaultShouldRevalidate: true,
+  };
+
+  expect(
+    shouldRevalidate({
+      ...base,
+      currentUrl: new URL('http://localhost/gardens'),
+      nextUrl: new URL('http://localhost/gardens/1'),
+      formMethod: 'GET',
+    }),
+  ).toBe(false);
+
+  expect(
+    shouldRevalidate({
+      ...base,
+      currentUrl: new URL('http://localhost/gardens/1'),
+      nextUrl: new URL('http://localhost/gardens'),
+      formMethod: 'GET',
+    }),
+  ).toBe(false);
+
+  expect(
+    shouldRevalidate({
+      ...base,
+      currentUrl: new URL('http://localhost/gardens'),
+      nextUrl: new URL('http://localhost/my-garden'),
+      formMethod: 'GET',
+    }),
+  ).toBe(true);
+});
+
+test('user can open a garden without waiting for the gardens loader', async () => {
+  const laterList = deferred<Response>();
+  let listCalls = 0;
+
+  stubGardensApi({
+    list: () => {
+      listCalls += 1;
+      if (listCalls === 1) {
+        return jsonResponse([garden]);
+      }
+
+      return laterList.promise;
+    },
+    plantsByGarden: () => jsonResponse([plant]),
+  });
+
+  renderGardensPageWithLoader();
+  await screen.findByRole('link', { name: 'Front yard' });
+  fireEvent.click(screen.getByRole('link', { name: 'Front yard' }));
+
+  expect(await screen.findByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+  expect(await screen.findByText('Tomato')).toBeTruthy();
+});
+
+test('plants request starts before the garden list resolves', async () => {
+  const list = deferred<Response>();
+  let plantsRequested = false;
+
+  stubGardensApi({
+    list: () => list.promise,
+    plantsByGarden: () => {
+      plantsRequested = true;
+      return jsonResponse([plant]);
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+
+  await waitFor(() => {
+    expect(plantsRequested).toBe(true);
+  });
+
+  list.resolve(jsonResponse([garden]));
+
+  expect(await screen.findByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+  expect(await screen.findByText('Tomato')).toBeTruthy();
+});
+
+test('user can see garden details and plants from the first HTML', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+  });
+
+  renderGardensPageWithLoader('/gardens/1');
+
+  expect(await screen.findByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+  expect(await screen.findByText('Tomato')).toBeTruthy();
 });

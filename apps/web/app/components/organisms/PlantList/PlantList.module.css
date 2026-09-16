@@ -8,22 +8,6 @@
   color: var(--color-text);
 }
 
-.clickable {
-  position: relative;
-  cursor: pointer;
-}
-
-.link::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-}
-
-.pending {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
 .desktopOnly {
   @mixin smaller-than $mantine-breakpoint-sm {
     display: none;
