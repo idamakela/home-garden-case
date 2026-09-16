@@ -10,14 +10,14 @@ alwaysApply: false
 
 # Data fetching in apps/web
 
-Document routes put **real data in the first HTML**. Loaders `fetchQuery` the same `*Query()` factories, `dehydrate`, and wrap the page in `HydrationBoundary`. The page `useQuery` reads that cache. Skeletons are a fallback when the cache is empty.
+Document routes put **real data in the first HTML**. Loaders `query` the same `*Query()` factories, `dehydrate`, and wrap the page in `HydrationBoundary`. The page `useQuery` reads that cache. Skeletons are a fallback when the cache is empty.
 
 Do not fetch in `useEffect`. Every non-docs API call waits **200–2000ms** and fails **~10%** of the time — keep round trips low. Do not invent URLs; use the Home Garden API skill. Do not disable the API delay/error plugins.
 
 ## Ownership
 
 ```
-Document page (/gardens): loader fetchQuery + dehydrate → HydrationBoundary → page useQuery/useMutation → organism props
+Document page (/gardens): loader query + dehydrate → HydrationBoundary → page useQuery/useMutation → organism props
 MPA page (/my-garden): static stub. No loader or query until the feature is implemented
 ```
 
@@ -38,13 +38,17 @@ Dehydrate **success and error** queries. Do not redact errors. Serialize `ApiErr
 
 Create garden: `setQueryData` on `gardenKeys.list()` with the created entity. Do not `invalidateQueries` the list just to refresh — that refetches the slow API and fights SSR plus optimistic rows.
 
-Use one list call for a list. Start independent requests together (`useQueries`) when the id is already in the URL. Do not fetch per row, waterfall `queryFn`s, or set `staleTime: 0`.
+Use one list call for a list. Start independent requests together when the id is already in the URL (detail `useQuery` plants enabled by URL id; loader may prefetch plants in parallel with the garden list). Do not fetch per row, waterfall `queryFn`s, or set `staleTime: 0`.
+
+Nested `/gardens/:id` is client-navigated. The gardens layout `shouldRevalidate` returns false for intra-`/gardens` GET navigations so the slow loader does not block click/back. React Query owns list freshness (`staleTime` + list `refetchInterval`). Do not put a blocking plants loader on the detail child route. Do not prefetch plants on hover or focus.
 
 ## Agent do / don't
 
 **Do**
 
-- Prefetch `/gardens` in a server `loader` with `fetchQuery(gardensQuery())`, `dehydrateQueryState`, and `HydrationBoundary`
+- Prefetch `/gardens` in a server `loader` with `queryClient.query(gardensQuery())`, `dehydrateQueryState`, and `HydrationBoundary`
+- Prefetch plants in that same loader only when `params.gardenId` is valid (document load / deep link)
+- Use `shouldRevalidate: false` for GET moves within `/gardens` so list ↔ detail stays instant
 - Use `useQuery(gardensQuery())` on the gardens page to read that cache
 - Use `refetchInterval` on list queries when another session should see new rows without a reload
 - Keep `/my-garden` a static stub until the feature is implemented
@@ -56,6 +60,8 @@ Use one list call for a list. Start independent requests together (`useQueries`)
 - `useQuery` below the page layer, or on `/my-garden`
 - Client-only first paint for a document route (skeleton while the list could have been in the HTML)
 - Fetch per row inside a list item
+- Re-run the gardens layout loader on every list ↔ detail click
+- Prefetch plants on hover/focus, or await plants in a detail child loader that blocks navigation
 
 ## Good / bad
 
@@ -63,7 +69,7 @@ Use one list call for a list. Start independent requests together (`useQueries`)
 export async function loader() {
   const queryClient = makeQueryClient({ retry: false });
   try {
-    await queryClient.fetchQuery(gardensQuery());
+    await queryClient.query(gardensQuery());
   } catch (error) {
     if (!(error instanceof Error)) throw error;
   }

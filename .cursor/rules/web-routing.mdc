@@ -18,10 +18,11 @@ This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden
 
 | Route | Kind | Data |
 | --- | --- | --- |
-| `/gardens` | MPA document | Server `loader` `fetchQuery` + `dehydrate`. Page `useQuery` / `useMutation` |
+| `/gardens` | MPA document | Server `loader` `query` + `dehydrate`. Page `useQuery` / `useMutation` |
+| `/gardens/:id` | Nested client route | Same layout loader on document load (gardens + plants when id valid). Client nav skips loader revalidation |
 | `/my-garden` | MPA | Static stub. No server `loader` |
 
-`/` redirects to `/gardens`. Nested `/gardens/:id` stays client-side later. Do not add more top-level documents without updating this rule.
+`/` redirects to `/gardens`. Nested `/gardens/:id` is client-navigated within the gardens layout. Do not add more top-level documents without updating this rule.
 
 ## Agent do / don't
 
@@ -29,8 +30,9 @@ This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden
 
 - Keep `ssr: true` in `react-router.config.ts`
 - Use `Link` with `reloadDocument` between `/gardens` and `/my-garden`
-- Prefetch the garden list in the `/gardens` server `loader` (`dehydrate` / `HydrationBoundary`)
-- Fetch gardens/plants with `useQuery` in the gardens page after that hydrate
+- Prefetch the garden list in the `/gardens` server `loader` (`dehydrate` / `HydrationBoundary`); prefetch plants there too when `:gardenId` is on the URL
+- Use `shouldRevalidate: false` for GET navigations within `/gardens` so list ↔ detail is not blocked by the slow loader
+- Fetch gardens/plants with `useQuery` in the gardens pages after that hydrate
 - Keep `/my-garden` static until the feature is implemented
 
 **Don't**
@@ -38,6 +40,7 @@ This app is an MPA (`ssr: true`). Top-level pages are `/gardens` and `/my-garden
 - Set `ssr: false`
 - Client-navigate between `/gardens` and `/my-garden`
 - Skip the gardens `loader` and wait for a client-only first paint
+- Block list ↔ detail clicks with a plants child loader or hover/focus plant prefetch
 - Fetch my-garden/user data with `useQuery` or a server `loader`
 
 ```tsx
