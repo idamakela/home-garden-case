@@ -9,5 +9,6 @@ import fp from 'fastify-plugin';
 export default fp(async function (fastify: FastifyInstance) {
   await fastify.register(cors, {
     origin: 'http://localhost:4200',
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'],
   });
 });
