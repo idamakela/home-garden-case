@@ -19,6 +19,18 @@ export const createGardenSchema = z
       .max(180, 'Longitude must be between -180 and 180')
       .nullable()
       .optional(),
+    minHumidity: z
+      .number()
+      .min(0, 'Min humidity must be between 0 and 100')
+      .max(100, 'Min humidity must be between 0 and 100')
+      .nullable()
+      .optional(),
+    maxHumidity: z
+      .number()
+      .min(0, 'Max humidity must be between 0 and 100')
+      .max(100, 'Max humidity must be between 0 and 100')
+      .nullable()
+      .optional(),
   })
   .refine(
     (data) => {
@@ -28,6 +40,27 @@ export const createGardenSchema = z
     },
     {
       message: 'Both latitude and longitude must be provided together',
+    },
+  )
+  .refine(
+    (data) => {
+      const hasMin = data.minHumidity !== null && data.minHumidity !== undefined;
+      const hasMax = data.maxHumidity !== null && data.maxHumidity !== undefined;
+      return hasMin === hasMax;
+    },
+    {
+      message: 'Both min humidity and max humidity must be provided together',
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.minHumidity == null || data.maxHumidity == null) {
+        return true;
+      }
+      return data.minHumidity <= data.maxHumidity;
+    },
+    {
+      message: 'Min humidity must be less than or equal to max humidity',
     },
   );
 
@@ -41,6 +74,8 @@ export type Garden = {
   locationDescription?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  minHumidity?: number | null;
+  maxHumidity?: number | null;
   createdAt: string;
   updatedAt: string;
 };

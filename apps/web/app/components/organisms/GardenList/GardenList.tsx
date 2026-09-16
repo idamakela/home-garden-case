@@ -1,11 +1,14 @@
 import { Anchor, Table, Text } from '@mantine/core';
 import { Link } from 'react-router';
+import { formatHumidityLevel } from '../../../lib/garden-humidity';
 import styles from './GardenList.module.css';
 
 export type GardenListItem = {
   id: string;
   gardenName: string;
   totalSurfaceArea: number;
+  minHumidity?: number | null;
+  maxHumidity?: number | null;
   latitude?: number | null;
   longitude?: number | null;
   pending?: boolean;
@@ -57,6 +60,7 @@ export function GardenList({ gardens }: GardenListProps) {
             <Table.Tr>
               <Table.Th>Garden name</Table.Th>
               <Table.Th>Total surface area</Table.Th>
+              <Table.Th>Humidity level</Table.Th>
               <Table.Th className={styles.desktopOnly}>Latitude</Table.Th>
               <Table.Th className={styles.desktopOnly}>Longitude</Table.Th>
             </Table.Tr>
@@ -84,6 +88,7 @@ export function GardenList({ gardens }: GardenListProps) {
                   )}
                 </Table.Td>
                 <Table.Td>{garden.totalSurfaceArea}</Table.Td>
+                <Table.Td>{formatHumidityLevel(garden.minHumidity, garden.maxHumidity)}</Table.Td>
                 <Table.Td className={styles.desktopOnly}>
                   {formatOptionalNumber(garden.latitude)}
                 </Table.Td>

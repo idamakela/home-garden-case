@@ -14,6 +14,7 @@ import { PlantListSkeleton } from '../components/organisms/PlantList/PlantListSk
 import { GardenDetail } from '../components/templates/GardenDetail/GardenDetail';
 import { GardenDetailSkeleton } from '../components/templates/GardenDetail/GardenDetailSkeleton';
 import { gardensLoadCopy, gardensUpdateCopy } from '../lib/garden-copy';
+import { formatHumidityLevel } from '../lib/garden-humidity';
 import { parseGardenId } from '../lib/garden-id';
 import { plantsCreateCopy, plantsLoadCopy } from '../lib/plant-copy';
 import { type Garden, type UpdateGarden } from '../queries/gardens';
@@ -64,8 +65,8 @@ function formatDateTime(value: string) {
 
 function gardenFields(garden: Garden) {
   return {
-    gardenId: String(garden.gardenId),
     totalSurfaceArea: String(garden.totalSurfaceArea),
+    humidityLevel: formatHumidityLevel(garden.minHumidity, garden.maxHumidity),
     locationDescription: formatOptional(garden.locationDescription),
     latitude: formatOptional(garden.latitude),
     longitude: formatOptional(garden.longitude),
@@ -81,6 +82,8 @@ function toUpdateGarden(garden: Garden): UpdateGarden {
     locationDescription: garden.locationDescription ?? null,
     latitude: garden.latitude ?? null,
     longitude: garden.longitude ?? null,
+    minHumidity: garden.minHumidity ?? null,
+    maxHumidity: garden.maxHumidity ?? null,
   };
 }
 

@@ -10,6 +10,8 @@ type GardenFormValues = {
   locationDescription: string;
   latitude: string | number;
   longitude: string | number;
+  minHumidity: string | number;
+  maxHumidity: string | number;
 };
 
 type FieldErrors = {
@@ -17,6 +19,8 @@ type FieldErrors = {
   totalSurfaceArea?: string;
   latitude?: string;
   longitude?: string;
+  minHumidity?: string;
+  maxHumidity?: string;
 };
 
 const emptyValues: GardenFormValues = {
@@ -25,6 +29,8 @@ const emptyValues: GardenFormValues = {
   locationDescription: '',
   latitude: '',
   longitude: '',
+  minHumidity: '',
+  maxHumidity: '',
 };
 
 type AddGardenModalProps = {
@@ -60,6 +66,8 @@ function toCreateGardenInput(values: GardenFormValues) {
     locationDescription,
     latitude: emptyToOptionalNumber(values.latitude),
     longitude: emptyToOptionalNumber(values.longitude),
+    minHumidity: emptyToOptionalNumber(values.minHumidity),
+    maxHumidity: emptyToOptionalNumber(values.maxHumidity),
   };
 }
 
@@ -70,6 +78,8 @@ function toFormValues(input: CreateGarden): GardenFormValues {
     locationDescription: input.locationDescription ?? '',
     latitude: input.latitude ?? '',
     longitude: input.longitude ?? '',
+    minHumidity: input.minHumidity ?? '',
+    maxHumidity: input.maxHumidity ?? '',
   };
 }
 
@@ -87,9 +97,17 @@ function fieldErrorsFromZod(error: z.ZodError): FieldErrors {
       key === 'gardenName' ||
       key === 'totalSurfaceArea' ||
       key === 'latitude' ||
-      key === 'longitude'
+      key === 'longitude' ||
+      key === 'minHumidity' ||
+      key === 'maxHumidity'
     ) {
       errors[key] ??= message;
+      continue;
+    }
+
+    if (message.toLowerCase().includes('humidity')) {
+      errors.minHumidity ??= message;
+      errors.maxHumidity ??= message;
       continue;
     }
 
@@ -112,6 +130,8 @@ export function AddGardenModal({
   const [errors, setErrors] = useState<FieldErrors>({});
   const hasLatitude = emptyToOptionalNumber(values.latitude) !== null;
   const hasLongitude = emptyToOptionalNumber(values.longitude) !== null;
+  const hasMinHumidity = emptyToOptionalNumber(values.minHumidity) !== null;
+  const hasMaxHumidity = emptyToOptionalNumber(values.maxHumidity) !== null;
 
   useEffect(() => {
     if (!opened) {
@@ -199,6 +219,34 @@ export function AddGardenModal({
               onChange={(longitude) => {
                 setValues((current) => ({ ...current, longitude }));
                 setErrors((current) => ({ ...current, longitude: undefined }));
+              }}
+            />
+          </Group>
+          <Group grow wrap="nowrap" preventGrowOverflow={false}>
+            <NumberInput
+              label="Min humidity (%)"
+              withAsterisk={hasMaxHumidity}
+              min={0}
+              max={100}
+              hideControls
+              value={values.minHumidity}
+              error={errors.minHumidity}
+              onChange={(minHumidity) => {
+                setValues((current) => ({ ...current, minHumidity }));
+                setErrors((current) => ({ ...current, minHumidity: undefined }));
+              }}
+            />
+            <NumberInput
+              label="Max humidity (%)"
+              withAsterisk={hasMinHumidity}
+              min={0}
+              max={100}
+              hideControls
+              value={values.maxHumidity}
+              error={errors.maxHumidity}
+              onChange={(maxHumidity) => {
+                setValues((current) => ({ ...current, maxHumidity }));
+                setErrors((current) => ({ ...current, maxHumidity: undefined }));
               }}
             />
           </Group>

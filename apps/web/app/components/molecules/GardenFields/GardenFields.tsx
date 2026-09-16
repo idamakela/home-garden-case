@@ -2,8 +2,8 @@ import { DataList, Paper } from '@mantine/core';
 import styles from './GardenFields.module.css';
 
 type GardenFieldsProps = {
-  gardenId: string;
   totalSurfaceArea: string;
+  humidityLevel: string;
   locationDescription: string;
   latitude: string;
   longitude: string;
@@ -13,8 +13,8 @@ type GardenFieldsProps = {
 };
 
 export function GardenFields({
-  gardenId,
   totalSurfaceArea,
+  humidityLevel,
   locationDescription,
   latitude,
   longitude,
@@ -34,12 +34,12 @@ export function GardenFields({
     >
       <DataList orientation="vertical" size="sm" gap="md" className={styles.list}>
         <DataList.Item>
-          <DataList.ItemLabel>Garden ID</DataList.ItemLabel>
-          <DataList.ItemValue>{gardenId}</DataList.ItemValue>
-        </DataList.Item>
-        <DataList.Item>
           <DataList.ItemLabel>Total surface area</DataList.ItemLabel>
           <DataList.ItemValue>{totalSurfaceArea}</DataList.ItemValue>
+        </DataList.Item>
+        <DataList.Item>
+          <DataList.ItemLabel>Humidity level</DataList.ItemLabel>
+          <DataList.ItemValue>{humidityLevel}</DataList.ItemValue>
         </DataList.Item>
         <DataList.Item className={styles.full}>
           <DataList.ItemLabel>Location description</DataList.ItemLabel>

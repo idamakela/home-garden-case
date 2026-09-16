@@ -22,6 +22,8 @@ const garden: Garden = {
   locationDescription: null,
   latitude: 52.37,
   longitude: 4.89,
+  minHumidity: 40,
+  maxHumidity: 60,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -152,6 +154,8 @@ function fillGardenForm(
     locationDescription?: string;
     latitude?: string;
     longitude?: string;
+    minHumidity?: string;
+    maxHumidity?: string;
   },
 ) {
   fireEvent.change(within(dialog).getByLabelText(/Garden name/), {
@@ -176,6 +180,18 @@ function fillGardenForm(
   if (values.longitude != null) {
     fireEvent.change(within(dialog).getByLabelText(/Longitude/), {
       target: { value: values.longitude },
+    });
+  }
+
+  if (values.minHumidity != null) {
+    fireEvent.change(within(dialog).getByLabelText(/Min humidity/), {
+      target: { value: values.minHumidity },
+    });
+  }
+
+  if (values.maxHumidity != null) {
+    fireEvent.change(within(dialog).getByLabelText(/Max humidity/), {
+      target: { value: values.maxHumidity },
     });
   }
 }
@@ -228,6 +244,38 @@ test('user can see gardens', async () => {
 
   expect(await screen.findByText('Front yard')).toBeTruthy();
   expect(screen.getByText('12')).toBeTruthy();
+  expect(screen.getByText('40% - 60%')).toBeTruthy();
+});
+
+test('user can see a garden without a humidity range', async () => {
+  const patio: Garden = {
+    gardenId: 2,
+    gardenName: 'Patio',
+    totalSurfaceArea: 8,
+    locationDescription: null,
+    latitude: 52,
+    longitude: 4,
+    minHumidity: null,
+    maxHumidity: null,
+    createdAt: '2026-01-02T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+  };
+
+  stubGardensApi({
+    list: () => jsonResponse([patio]),
+    plantsByGarden: () => jsonResponse([]),
+  });
+
+  renderGardensPage();
+
+  expect(await screen.findByText('Patio')).toBeTruthy();
+  expect(screen.getByText('0% - 100%')).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('link', { name: 'Patio' }));
+
+  expect(await screen.findByRole('heading', { name: 'Patio', level: 1 })).toBeTruthy();
+  expect(screen.getByText('0% - 100%')).toBeTruthy();
+  expect(screen.getByText('—')).toBeTruthy();
 });
 
 test('user sees an empty gardens list', async () => {
@@ -272,6 +320,8 @@ test('user can add a garden', async () => {
     locationDescription: 'Near the shed',
     latitude: 52,
     longitude: 4,
+    minHumidity: 30,
+    maxHumidity: 70,
     createdAt: '2026-01-02T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
   };
@@ -286,6 +336,8 @@ test('user can add a garden', async () => {
         locationDescription: 'Near the shed',
         latitude: 52,
         longitude: 4,
+        minHumidity: 30,
+        maxHumidity: 70,
       });
       return createRequest.promise;
     },
@@ -301,6 +353,8 @@ test('user can add a garden', async () => {
     locationDescription: 'Near the shed',
     latitude: '52',
     longitude: '4',
+    minHumidity: '30',
+    maxHumidity: '70',
   });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
 
@@ -325,6 +379,53 @@ test('user cannot add a garden with incomplete details', async () => {
   await screen.findByText('Front yard');
 
   const dialog = await openAddGardenModal();
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
+
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.queryByText('Backyard')).toBeNull();
+});
+
+test('user cannot add a garden with invalid humidity', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    create: () => {
+      throw new Error('POST /gardens should not be called');
+    },
+  });
+
+  renderGardensPage();
+  await screen.findByText('Front yard');
+
+  const dialog = await openAddGardenModal();
+  fillGardenForm(dialog, {
+    gardenName: 'Backyard',
+    totalSurfaceArea: '20',
+    minHumidity: '80',
+    maxHumidity: '20',
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
+
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.queryByText('Backyard')).toBeNull();
+});
+
+test('user cannot add a garden with incomplete humidity', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    create: () => {
+      throw new Error('POST /gardens should not be called');
+    },
+  });
+
+  renderGardensPage();
+  await screen.findByText('Front yard');
+
+  const dialog = await openAddGardenModal();
+  fillGardenForm(dialog, {
+    gardenName: 'Backyard',
+    totalSurfaceArea: '20',
+    minHumidity: '40',
+  });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
 
   expect(screen.getByRole('dialog')).toBeTruthy();
@@ -366,6 +467,8 @@ test('user is told why a garden was not added and can restore the form', async (
     locationDescription: 'Near the shed',
     latitude: '52',
     longitude: '4',
+    minHumidity: '30',
+    maxHumidity: '70',
   });
   fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
 
@@ -385,6 +488,8 @@ test('user is told why a garden was not added and can restore the form', async (
   );
   expect(within(restored).getByLabelText(/Latitude/)).toHaveProperty('value', '52');
   expect(within(restored).getByLabelText(/Longitude/)).toHaveProperty('value', '4');
+  expect(within(restored).getByLabelText(/Min humidity/)).toHaveProperty('value', '30');
+  expect(within(restored).getByLabelText(/Max humidity/)).toHaveProperty('value', '70');
 });
 
 test('user can add more than one garden at a time', async () => {
@@ -547,8 +652,8 @@ test('user can open a garden and see its details and plants', async () => {
   fireEvent.click(screen.getByText('12'));
 
   expect(await screen.findByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
-  expect(screen.getByText('1')).toBeTruthy();
   expect(screen.getByText('12')).toBeTruthy();
+  expect(screen.getByText('40% - 60%')).toBeTruthy();
   expect(screen.getByText('52.37')).toBeTruthy();
   expect(screen.getByText('4.89')).toBeTruthy();
   expect(await screen.findByText('Tomato')).toBeTruthy();
@@ -734,6 +839,8 @@ test('user can update a garden', async () => {
         locationDescription: null,
         latitude: 52.37,
         longitude: 4.89,
+        minHumidity: 40,
+        maxHumidity: 60,
       });
       return updateRequest.promise;
     },
@@ -786,6 +893,52 @@ test('user cannot update a garden with incomplete details', async () => {
   expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
 });
 
+test('user cannot update a garden with invalid humidity', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: () => {
+      throw new Error('PUT /gardens/:gardenId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Min humidity/), {
+    target: { value: '90' },
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Update garden' }));
+
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+});
+
+test('user cannot update a garden with incomplete humidity', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: () => {
+      throw new Error('PUT /gardens/:gardenId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Max humidity/), {
+    target: { value: '' },
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Update garden' }));
+
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+});
+
 test('user is told why a garden was not updated and can restore the form', async () => {
   stubGardensApi({
     list: () => jsonResponse([garden]),
@@ -817,6 +970,8 @@ test('user is told why a garden was not updated and can restore the form', async
   expect(within(restored).getByLabelText(/Location description/)).toHaveProperty('value', '');
   expect(within(restored).getByLabelText(/Latitude/)).toHaveProperty('value', '52.37');
   expect(within(restored).getByLabelText(/Longitude/)).toHaveProperty('value', '4.89');
+  expect(within(restored).getByLabelText(/Min humidity/)).toHaveProperty('value', '40');
+  expect(within(restored).getByLabelText(/Max humidity/)).toHaveProperty('value', '60');
 });
 
 test('user can cancel deleting a garden', async () => {

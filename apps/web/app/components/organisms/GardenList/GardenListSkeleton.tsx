@@ -2,7 +2,7 @@ import { Skeleton, Table } from '@mantine/core';
 import styles from './GardenList.module.css';
 
 const PLACEHOLDER_ROWS = [0, 1, 2, 3, 4] as const;
-const PLACEHOLDER_COLUMNS = [0, 1, 2, 3] as const;
+const PLACEHOLDER_COLUMNS = [0, 1, 2, 3, 4] as const;
 
 export function GardenListSkeleton() {
   return (
@@ -11,7 +11,7 @@ export function GardenListSkeleton() {
         <Table.Thead>
           <Table.Tr>
             {PLACEHOLDER_COLUMNS.map((column) => (
-              <Table.Th key={column} className={column >= 2 ? styles.desktopOnly : undefined}>
+              <Table.Th key={column} className={column >= 3 ? styles.desktopOnly : undefined}>
                 <Skeleton height={8} />
               </Table.Th>
             ))}
@@ -21,7 +21,7 @@ export function GardenListSkeleton() {
           {PLACEHOLDER_ROWS.map((row) => (
             <Table.Tr key={row}>
               {PLACEHOLDER_COLUMNS.map((column) => (
-                <Table.Td key={column} className={column >= 2 ? styles.desktopOnly : undefined}>
+                <Table.Td key={column} className={column >= 3 ? styles.desktopOnly : undefined}>
                   <Skeleton height={8} />
                 </Table.Td>
               ))}

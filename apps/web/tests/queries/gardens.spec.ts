@@ -75,6 +75,63 @@ test('createGardenSchema rejects out-of-range coordinates', () => {
   ).toBe(false);
 });
 
+test('createGardenSchema rejects humidity outside 0–100', () => {
+  expect(
+    createGardenSchema.safeParse({
+      ...validGarden,
+      minHumidity: -1,
+      maxHumidity: 50,
+    }).success,
+  ).toBe(false);
+  expect(
+    createGardenSchema.safeParse({
+      ...validGarden,
+      minHumidity: 50,
+      maxHumidity: 101,
+    }).success,
+  ).toBe(false);
+});
+
+test('createGardenSchema rejects min humidity above max humidity', () => {
+  expect(
+    createGardenSchema.safeParse({
+      ...validGarden,
+      minHumidity: 80,
+      maxHumidity: 20,
+    }).success,
+  ).toBe(false);
+});
+
+test('createGardenSchema requires min and max humidity together', () => {
+  expect(
+    createGardenSchema.safeParse({
+      ...validGarden,
+      minHumidity: 40,
+    }).success,
+  ).toBe(false);
+  expect(
+    createGardenSchema.safeParse({
+      ...validGarden,
+      maxHumidity: 60,
+    }).success,
+  ).toBe(false);
+  expect(
+    createGardenSchema.safeParse({
+      ...validGarden,
+      minHumidity: 40,
+      maxHumidity: 60,
+    }).success,
+  ).toBe(true);
+  expect(
+    createGardenSchema.safeParse({
+      ...validGarden,
+      minHumidity: 50,
+      maxHumidity: 50,
+    }).success,
+  ).toBe(true);
+  expect(createGardenSchema.safeParse(validGarden).success).toBe(true);
+});
+
 const frontYard: Garden = {
   gardenId: 1,
   gardenName: 'Front yard',

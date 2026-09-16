@@ -4,8 +4,8 @@ import { SectionHeader } from '../../molecules/SectionHeader/SectionHeader';
 
 type GardenDetailProps = {
   gardenName: string;
-  gardenId: string;
   totalSurfaceArea: string;
+  humidityLevel: string;
   locationDescription: string;
   latitude: string;
   longitude: string;
@@ -19,8 +19,8 @@ type GardenDetailProps = {
 
 export function GardenDetail({
   gardenName,
-  gardenId,
   totalSurfaceArea,
+  humidityLevel,
   locationDescription,
   latitude,
   longitude,
@@ -35,8 +35,8 @@ export function GardenDetail({
     <>
       <SectionHeader title={gardenName}>{actions}</SectionHeader>
       <GardenFields
-        gardenId={gardenId}
         totalSurfaceArea={totalSurfaceArea}
+        humidityLevel={humidityLevel}
         locationDescription={locationDescription}
         latitude={latitude}
         longitude={longitude}
