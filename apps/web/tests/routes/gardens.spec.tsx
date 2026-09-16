@@ -751,11 +751,12 @@ test('user can update a garden', async () => {
 
   expect(await screen.findByRole('heading', { name: 'Backyard', level: 1 })).toBeTruthy();
   expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Update garden' })).toHaveProperty('disabled', true);
 
   updateRequest.resolve(jsonResponse(updated));
 
   await waitFor(() => {
-    expect(screen.getByRole('heading', { name: 'Backyard', level: 1 })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Update garden' })).toHaveProperty('disabled', false);
   });
 
   fireEvent.click(screen.getByRole('link', { name: 'back' }));
@@ -806,6 +807,7 @@ test('user is told why a garden was not updated and can restore the form', async
   expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
   expect(screen.queryByText(/boom/)).toBeNull();
   expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Update garden' })).toHaveProperty('disabled', false);
 
   fireEvent.click(screen.getByRole('button', { name: /Couldn't update this garden/ }));
 

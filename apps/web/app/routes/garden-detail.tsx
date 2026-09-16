@@ -347,7 +347,7 @@ export default function GardenDetailPage() {
           pending={pendingUpdate != null}
           actions={
             <Group gap="sm">
-              <Button type="button" onClick={openUpdate}>
+              <Button type="button" onClick={openUpdate} disabled={pendingUpdate != null}>
                 Update garden
               </Button>
               <Button type="button" variant="default" onClick={deleteModal.open}>
