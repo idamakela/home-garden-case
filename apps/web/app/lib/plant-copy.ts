@@ -89,3 +89,37 @@ export function plantsUpdateCopy(error: unknown): { title: string; message: stri
     message: 'Please try again.',
   };
 }
+
+export function plantsDeleteCopy(
+  error: unknown,
+  plantName?: string,
+): { title: string; message: string } {
+  const status = getErrorStatus(error);
+  const title = plantName ? `Couldn't delete ${plantName}` : "Couldn't delete this plant";
+
+  if (status === 400) {
+    return {
+      title,
+      message: 'Check the details and try again.',
+    };
+  }
+
+  if (status === 409) {
+    return {
+      title,
+      message: 'This conflicts with current data. Try again.',
+    };
+  }
+
+  if (status != null && status >= 500) {
+    return {
+      title,
+      message: 'The service is temporarily unavailable. Try again.',
+    };
+  }
+
+  return {
+    title,
+    message: 'Please try again.',
+  };
+}

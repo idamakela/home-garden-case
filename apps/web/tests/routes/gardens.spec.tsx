@@ -1515,14 +1515,63 @@ test('user can confirm they want to delete a plant', async () => {
   const detail = await openPlantDetails();
   fireEvent.click(within(detail).getByRole('button', { name: 'Delete plant' }));
 
-  const confirm = await screen.findByRole('dialog', {
-    name: 'Are you sure you want to delete this plant?',
+  expect(within(detail).getByText('Delete this plant? This action is irreversible.')).toBeTruthy();
+  expect(
+    screen.queryByRole('dialog', { name: 'Are you sure you want to delete this plant?' }),
+  ).toBeNull();
+
+  fireEvent.click(within(detail).getByRole('button', { name: 'No, cancel' }));
+
+  expect(within(detail).getByRole('heading', { name: 'Tomato' })).toBeTruthy();
+  expect(within(detail).getByRole('button', { name: 'Delete plant' })).toBeTruthy();
+  expect(within(detail).queryByText('Delete this plant? This action is irreversible.')).toBeNull();
+});
+
+test('user can delete a plant', async () => {
+  const deleteRequest = deferred<Response>();
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    deletePlant: (plantId) => {
+      expect(plantId).toBe(1);
+      return deleteRequest.promise;
+    },
   });
-  expect(within(confirm).getByText('This action is irreversible.')).toBeTruthy();
 
-  fireEvent.click(within(confirm).getByRole('button', { name: 'Yes, delete' }));
+  renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Delete plant' }));
+  fireEvent.click(within(detail).getByRole('button', { name: 'Yes, delete' }));
 
-  expect(screen.queryByRole('dialog', { name: 'Are you sure you want to delete this plant?' })).toBeNull();
   expect(screen.queryByRole('dialog', { name: 'Tomato' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'Tomato' })).toBeTruthy();
+  await waitFor(() => {
+    expect(screen.queryByRole('button', { name: 'Tomato' })).toBeNull();
+  });
+  expect(screen.getByText('No plants in this garden yet.')).toBeTruthy();
+
+  deleteRequest.resolve(new Response(null, { status: 204 }));
+
+  await waitFor(() => {
+    expect(screen.queryByRole('button', { name: 'Tomato' })).toBeNull();
+  });
+});
+
+test('user is told why a plant was not deleted', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    deletePlant: () => new Response('Internal error JSON {"message":"boom"}', { status: 500 }),
+  });
+
+  renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Delete plant' }));
+  fireEvent.click(within(detail).getByRole('button', { name: 'Yes, delete' }));
+
+  expect(screen.queryByRole('dialog', { name: 'Tomato' })).toBeNull();
+  expect(await screen.findByText("Couldn't delete Tomato")).toBeTruthy();
+  expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
+  expect(screen.queryByText(/boom/)).toBeNull();
+  expect(await screen.findByRole('button', { name: 'Tomato' })).toBeTruthy();
 });

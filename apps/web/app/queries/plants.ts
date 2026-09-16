@@ -58,6 +58,10 @@ export function upsertPlantInList(current: Plant[] | undefined, plant: Plant): P
   return current.map((item) => (item.plantId === plant.plantId ? plant : item));
 }
 
+export function removePlantFromList(current: Plant[] | undefined, plantId: number): Plant[] {
+  return (current ?? []).filter((item) => item.plantId !== plantId);
+}
+
 export function getPlantById(plantId: number) {
   return api<Plant>(`/plants/${plantId}`);
 }

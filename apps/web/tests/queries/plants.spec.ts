@@ -1,6 +1,7 @@
 import {
   createPlantSchema,
   plantKeys,
+  removePlantFromList,
   upsertPlantInList,
   type Plant,
 } from '../../app/queries/plants';
@@ -129,4 +130,13 @@ test('upsertPlantInList replaces a plant with the same id', () => {
 test('upsertPlantInList uses the plant when the cache is empty', () => {
   expect(upsertPlantInList(undefined, basil)).toEqual([basil]);
   expect(upsertPlantInList([], basil)).toEqual([basil]);
+});
+
+test('removePlantFromList drops a plant by id', () => {
+  expect(removePlantFromList([tomato, basil], 1)).toEqual([basil]);
+});
+
+test('removePlantFromList uses an empty list when the cache is empty', () => {
+  expect(removePlantFromList(undefined, 1)).toEqual([]);
+  expect(removePlantFromList([], 1)).toEqual([]);
 });

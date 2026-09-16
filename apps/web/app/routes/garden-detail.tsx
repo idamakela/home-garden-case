@@ -7,8 +7,8 @@ import { AddGardenModal } from '../components/molecules/AddGardenModal/AddGarden
 import { AddPlantModal } from '../components/molecules/AddPlantModal/AddPlantModal';
 import { BackLink } from '../components/molecules/BackLink/BackLink';
 import { DeleteGardenModal } from '../components/molecules/DeleteGardenModal/DeleteGardenModal';
-import { DeletePlantModal } from '../components/molecules/DeletePlantModal/DeletePlantModal';
 import { ErrorAlert } from '../components/molecules/ErrorAlert/ErrorAlert';
+import { ModalActions } from '../components/molecules/ModalActions/ModalActions';
 import { GardenRemovedModal } from '../components/molecules/GardenRemovedModal/GardenRemovedModal';
 import { PlantDetailModal } from '../components/molecules/PlantDetailModal/PlantDetailModal';
 import { PlantList } from '../components/organisms/PlantList/PlantList';
@@ -22,6 +22,7 @@ import { plantsCreateCopy, plantsLoadCopy, plantsUpdateCopy } from '../lib/plant
 import { type Garden, type UpdateGarden } from '../queries/gardens';
 import { useCreatePlant } from '../queries/hooks/useCreatePlant';
 import { useDeleteGarden } from '../queries/hooks/useDeleteGarden';
+import { useDeletePlant } from '../queries/hooks/useDeletePlant';
 import { useGardens } from '../queries/hooks/useGardens';
 import { usePlantsByGarden } from '../queries/hooks/usePlantsByGarden';
 import { useUpdateGarden } from '../queries/hooks/useUpdateGarden';
@@ -138,8 +139,8 @@ export default function GardenDetailPage() {
   const [deleteOpened, deleteModal] = useDisclosure(false);
   const [addPlantOpened, addPlantModal] = useDisclosure(false);
   const [updatePlantOpened, updatePlantModal] = useDisclosure(false);
-  const [deletePlantOpened, deletePlantModal] = useDisclosure(false);
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
+  const [confirmingDeletePlant, setConfirmingDeletePlant] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState<PendingUpdate | null>(null);
   const [restoreValues, setRestoreValues] = useState<UpdateGarden | null>(null);
   const [pendingPlantAdditions, setPendingPlantAdditions] = useState<PendingPlantAddition[]>([]);
@@ -165,6 +166,7 @@ export default function GardenDetailPage() {
   const deleteGarden = useDeleteGarden();
   const createPlant = useCreatePlant();
   const updatePlant = useUpdatePlant();
+  const deletePlant = useDeletePlant();
   const remotelyRemoved =
     !ownDeleteRef.current &&
     gardenId != null &&
@@ -213,6 +215,7 @@ export default function GardenDetailPage() {
   }
 
   function openUpdatePlant() {
+    setConfirmingDeletePlant(false);
     updatePlantModal.open();
   }
 
@@ -228,23 +231,26 @@ export default function GardenDetailPage() {
     }
 
     setSelectedPlant(plant);
+    setConfirmingDeletePlant(false);
     closeUpdatePlantModal();
-    deletePlantModal.close();
   }
 
   function closePlantDetail() {
     setSelectedPlant(null);
+    setConfirmingDeletePlant(false);
     setFailedPlantUpdate(null);
     setRestoreUpdatePlantValues(null);
     closeUpdatePlantModal();
-    deletePlantModal.close();
   }
 
   function confirmDeletePlant() {
-    deletePlantModal.close();
-    setSelectedPlant(null);
-    setFailedPlantUpdate(null);
-    setRestoreUpdatePlantValues(null);
+    if (selectedPlant == null) {
+      return;
+    }
+
+    const { plantId, gardenId: plantGardenId, plantName } = selectedPlant;
+    closePlantDetail();
+    deletePlant.mutate({ plantId, gardenId: plantGardenId, plantName });
   }
 
   function submitUpdate(body: UpdateGarden) {
@@ -535,21 +541,44 @@ export default function GardenDetailPage() {
             opened
             onClose={closePlantDetail}
             plantName={displayedSelectedPlant.plantName}
-            closeOnEscape={!updatePlantOpened && !deletePlantOpened}
-            closeOnClickOutside={!updatePlantOpened && !deletePlantOpened}
+            closeOnEscape={!updatePlantOpened}
+            closeOnClickOutside={!updatePlantOpened}
             actions={
-              <Group gap="sm">
-                <Button
-                  type="button"
-                  onClick={openUpdatePlant}
-                  disabled={pendingSelectedUpdate != null}
-                >
-                  Update plant
-                </Button>
-                <Button type="button" variant="default" onClick={deletePlantModal.open}>
-                  Delete plant
-                </Button>
-              </Group>
+              confirmingDeletePlant ? (
+                <Stack gap="sm" bg="red.0" p="md" bdrs="md" bd="1px solid red.3">
+                  <Text>Delete this plant? This action is irreversible.</Text>
+                  <ModalActions>
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={() => setConfirmingDeletePlant(false)}
+                    >
+                      No, cancel
+                    </Button>
+                    <Button type="button" color="red" onClick={confirmDeletePlant}>
+                      Yes, delete
+                    </Button>
+                  </ModalActions>
+                </Stack>
+              ) : (
+                <Group gap="sm">
+                  <Button
+                    type="button"
+                    onClick={openUpdatePlant}
+                    disabled={pendingSelectedUpdate != null}
+                  >
+                    Update plant
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="default"
+                    onClick={() => setConfirmingDeletePlant(true)}
+                    disabled={pendingSelectedUpdate != null}
+                  >
+                    Delete plant
+                  </Button>
+                </Group>
+              )
             }
             {...plantFields(displayedSelectedPlant)}
             pending={pendingSelectedUpdate != null}
@@ -572,12 +601,6 @@ export default function GardenDetailPage() {
           opened={deleteOpened}
           onClose={deleteModal.close}
           onConfirm={confirmDelete}
-        />
-        <DeletePlantModal
-          opened={deletePlantOpened}
-          onClose={deletePlantModal.close}
-          onConfirm={confirmDeletePlant}
-          zIndex={400}
         />
         <GardenRemovedModal
           opened={removedDialog.opened}
