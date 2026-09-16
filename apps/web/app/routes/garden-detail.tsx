@@ -119,6 +119,20 @@ function toCreatePlant(plant: Plant): CreatePlant {
   };
 }
 
+function usedSurfaceArea(
+  plants: { surfaceAreaRequired: number }[],
+  pendingAdditions: PendingPlantAddition[],
+) {
+  const fromPlants = plants.reduce((sum, plant) => sum + plant.surfaceAreaRequired, 0);
+  const fromPending = pendingAdditions.reduce((sum, item) => sum + item.body.surfaceAreaRequired, 0);
+
+  return fromPlants + fromPending;
+}
+
+function remainingAfterUsed(total: number, used: number) {
+  return Math.max(0, total - used);
+}
+
 function toUpdateGarden(garden: Garden): UpdateGarden {
   return {
     gardenName: garden.gardenName,
@@ -483,12 +497,19 @@ export default function GardenDetailPage() {
       pendingSelectedUpdate == null
         ? plantsUpdateCopy(failedPlantUpdate.error)
         : null;
+    const used = usedSurfaceArea(plants.data ?? [], pendingPlantAdditions);
+    const remaining = remainingAfterUsed(garden.totalSurfaceArea, used);
+    const plantsSubtitle =
+      plants.data != null
+        ? `${used}m² of ${garden.totalSurfaceArea}m² currently used`
+        : undefined;
 
     content = (
       <>
         <GardenDetail
           gardenName={garden.gardenName}
           plants={plantsContent}
+          plantsSubtitle={plantsSubtitle}
           pending={pendingUpdate != null}
           actions={
             <Group gap="sm">
@@ -521,6 +542,7 @@ export default function GardenDetailPage() {
           onSubmit={submitPlant}
           gardenId={garden.gardenId}
           gardenName={garden.gardenName}
+          remainingSurfaceArea={remaining}
           initialValues={restorePlantValues}
         />
         <AddPlantModal
@@ -529,6 +551,7 @@ export default function GardenDetailPage() {
           onSubmit={submitUpdatePlant}
           gardenId={garden.gardenId}
           gardenName={garden.gardenName}
+          remainingSurfaceArea={remaining + (selectedPlant?.surfaceAreaRequired ?? 0)}
           initialValues={
             restoreUpdatePlantValues ?? (selectedPlant ? toCreatePlant(selectedPlant) : null)
           }

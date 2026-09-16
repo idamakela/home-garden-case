@@ -1,5 +1,5 @@
 import { Button, Group, Modal, NativeSelect, NumberInput, Stack, TextInput } from '@mantine/core';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { z } from 'zod/v4';
 import { createPlantSchema, type CreatePlant, type PlantType } from '../../../queries/plants';
 import { ModalActions } from '../ModalActions/ModalActions';
@@ -60,6 +60,7 @@ type AddPlantModalProps = {
   onSubmit: (body: CreatePlant) => void;
   gardenId: number;
   gardenName: string;
+  remainingSurfaceArea: number;
   showGardenId?: boolean;
   initialValues?: CreatePlant | null;
   title?: string;
@@ -181,6 +182,7 @@ export function AddPlantModal({
   onSubmit,
   gardenId,
   gardenName,
+  remainingSurfaceArea,
   showGardenId = false,
   initialValues = null,
   title,
@@ -189,14 +191,20 @@ export function AddPlantModal({
 }: AddPlantModalProps) {
   const [values, setValues] = useState<PlantFormValues>(emptyFormValues);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const hydratedOpenRef = useRef(false);
   const parsed = createPlantSchema.safeParse(toCreatePlantInput(values, gardenId));
-  const canSubmit = parsed.success;
-  const schemaErrors = parsed.success ? {} : fieldErrorsFromZod(parsed.error);
   const surfaceAreaRequiredValue = emptyToOptionalNumber(values.surfaceAreaRequired);
+  const overflows =
+    surfaceAreaRequiredValue != null && surfaceAreaRequiredValue > remainingSurfaceArea;
+  const canSubmit = parsed.success && !overflows;
+  const schemaErrors = parsed.success ? {} : fieldErrorsFromZod(parsed.error);
+  const overflowWarning = `This plant needs more than the ${remainingSurfaceArea}m² left in this garden.`;
   const surfaceAreaRequiredError =
     surfaceAreaRequiredValue === 0
       ? 'Surface area required must be greater than 0'
-      : errors.surfaceAreaRequired;
+      : overflows
+        ? overflowWarning
+        : errors.surfaceAreaRequired;
   const idealHumidityLevelError = liveNumberError(
     values.idealHumidityLevel,
     schemaErrors.idealHumidityLevel,
@@ -205,9 +213,15 @@ export function AddPlantModal({
 
   useEffect(() => {
     if (!opened) {
+      hydratedOpenRef.current = false;
       return;
     }
 
+    if (hydratedOpenRef.current) {
+      return;
+    }
+
+    hydratedOpenRef.current = true;
     setValues(initialValues ? toFormValues(initialValues) : emptyFormValues());
     setErrors({});
   }, [opened, initialValues]);
@@ -219,6 +233,10 @@ export function AddPlantModal({
 
     if (!parsed.success) {
       setErrors(fieldErrorsFromZod(parsed.error));
+      return;
+    }
+
+    if (parsed.data.surfaceAreaRequired > remainingSurfaceArea) {
       return;
     }
 
@@ -289,7 +307,10 @@ export function AddPlantModal({
               label="Surface area required (m²)"
               withAsterisk
               min={0}
+              clampBehavior="none"
               hideControls
+              inputWrapperOrder={['label', 'input', 'description', 'error']}
+              description={`${remainingSurfaceArea}m² left in this garden`}
               value={values.surfaceAreaRequired}
               error={surfaceAreaRequiredError}
               onChange={(surfaceAreaRequired) => {

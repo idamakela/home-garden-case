@@ -995,6 +995,35 @@ test('user can update a garden', async () => {
   expect(await screen.findByRole('link', { name: 'Backyard' })).toBeTruthy();
 });
 
+test('user can keep editing a garden after garden data refreshes', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: () => {
+      throw new Error('PUT /gardens/:gardenId should not be called');
+    },
+  });
+
+  const { queryClient } = renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Garden name/), {
+    target: { value: 'Backyard' },
+  });
+  fireEvent.change(within(dialog).getByLabelText(/Total surface area/), {
+    target: { value: '18' },
+  });
+
+  act(() => {
+    queryClient.setQueryData(gardenQueryKeys.list(), [{ ...garden }]);
+  });
+
+  expect(within(dialog).getByLabelText(/Garden name/)).toHaveProperty('value', 'Backyard');
+  expect(within(dialog).getByLabelText(/Total surface area/)).toHaveProperty('value', '18');
+});
+
 test('user cannot update a garden with incomplete details', async () => {
   stubGardensApi({
     list: () => jsonResponse([garden]),
@@ -1402,6 +1431,47 @@ test('user can add a plant', async () => {
   });
 });
 
+test('user can see how much garden surface area plants use', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+  });
+
+  renderGardensPage('/gardens/1');
+
+  expect(await screen.findByText('2m² of 12m² currently used')).toBeTruthy();
+});
+
+test('user cannot add a plant that needs more surface area than the garden has left', async () => {
+  const plantationDateLocal = '2026-04-01T09:30';
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByText('Tomato');
+
+  const dialog = await openAddPlantModal();
+  fillPlantForm(dialog, {
+    plantName: 'Basil',
+    species: 'Ocimum basilicum',
+    plantType: 'vegetable',
+    plantationDate: plantationDateLocal,
+    surfaceAreaRequired: '11',
+    idealHumidityLevel: '55',
+  });
+
+  expect(
+    within(dialog).getByText('This plant needs more than the 10m² left in this garden.'),
+  ).toBeTruthy();
+  expect(within(dialog).getByRole('button', { name: 'Add plant' })).toHaveProperty('disabled', true);
+});
+
 test('user cannot add a plant with incomplete details', async () => {
   stubGardensApi({
     list: () => jsonResponse([garden]),
@@ -1582,6 +1652,44 @@ test('user can start updating a plant', async () => {
   expect(within(updateDialog).getByRole('button', { name: 'Update plant' })).toHaveProperty(
     'disabled',
     false,
+  );
+});
+
+test('user can keep editing a plant after garden data refreshes', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+    updatePlant: () => {
+      throw new Error('PUT /plants/:plantId should not be called');
+    },
+  });
+
+  const { queryClient } = renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Update plant' }));
+
+  const updateDialog = await screen.findByRole('dialog', { name: 'Update plant' });
+  fireEvent.change(within(updateDialog).getByLabelText(/Plant name/), {
+    target: { value: 'Cherry tomato' },
+  });
+  fireEvent.change(within(updateDialog).getByLabelText(/Surface area required \(m²\)/), {
+    target: { value: '3' },
+  });
+
+  act(() => {
+    queryClient.setQueryData(gardenQueryKeys.list(), [{ ...garden }]);
+  });
+
+  expect(within(updateDialog).getByLabelText(/Plant name/)).toHaveProperty(
+    'value',
+    'Cherry tomato',
+  );
+  expect(within(updateDialog).getByLabelText(/Surface area required \(m²\)/)).toHaveProperty(
+    'value',
+    '3',
   );
 });
 

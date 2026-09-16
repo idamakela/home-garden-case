@@ -1,3 +1,4 @@
+import { Text } from '@mantine/core';
 import type { ReactNode } from 'react';
 import { GardenFields } from '../../molecules/GardenFields/GardenFields';
 import { SectionHeader } from '../../molecules/SectionHeader/SectionHeader';
@@ -14,6 +15,7 @@ type GardenDetailProps = {
   pending?: boolean;
   actions?: ReactNode;
   plantsActions?: ReactNode;
+  plantsSubtitle?: string;
   plants: ReactNode;
 };
 
@@ -29,6 +31,7 @@ export function GardenDetail({
   pending = false,
   actions,
   plantsActions,
+  plantsSubtitle,
   plants,
 }: GardenDetailProps) {
   return (
@@ -47,6 +50,11 @@ export function GardenDetail({
       <SectionHeader title="Plants" order={2}>
         {plantsActions}
       </SectionHeader>
+      {plantsSubtitle ? (
+        <Text size="xs" c="dimmed">
+          {plantsSubtitle}
+        </Text>
+      ) : null}
       {plants}
     </>
   );

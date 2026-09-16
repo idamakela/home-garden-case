@@ -1,5 +1,5 @@
 import { Button, Group, Modal, NumberInput, Stack, Textarea, TextInput } from '@mantine/core';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { z } from 'zod/v4';
 import { createGardenSchema, type CreateGarden } from '../../../queries/gardens';
 import { ModalActions } from '../ModalActions/ModalActions';
@@ -140,6 +140,7 @@ export function AddGardenModal({
 }: AddGardenModalProps) {
   const [values, setValues] = useState<GardenFormValues>(emptyValues);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const hydratedOpenRef = useRef(false);
   const parsed = createGardenSchema.safeParse(toCreateGardenInput(values));
   const canSubmit = parsed.success;
   const schemaErrors = parsed.success ? {} : fieldErrorsFromZod(parsed.error);
@@ -171,9 +172,15 @@ export function AddGardenModal({
 
   useEffect(() => {
     if (!opened) {
+      hydratedOpenRef.current = false;
       return;
     }
 
+    if (hydratedOpenRef.current) {
+      return;
+    }
+
+    hydratedOpenRef.current = true;
     setValues(initialValues ? toFormValues(initialValues) : emptyValues);
     setErrors({});
   }, [opened, initialValues]);
@@ -210,6 +217,7 @@ export function AddGardenModal({
             label="Total surface area"
             withAsterisk
             min={0}
+            clampBehavior="none"
             hideControls
             value={values.totalSurfaceArea}
             error={totalSurfaceAreaError}
