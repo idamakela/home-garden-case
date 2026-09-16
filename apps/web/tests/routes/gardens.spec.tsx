@@ -409,8 +409,11 @@ test('user cannot add a garden with incomplete details', async () => {
   await screen.findByText('Front yard');
 
   const dialog = await openAddGardenModal();
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
 
+  expect(within(dialog).getByRole('button', { name: 'Add garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
   expect(screen.getByRole('dialog')).toBeTruthy();
   expect(screen.queryByText('Backyard')).toBeNull();
 });
@@ -433,9 +436,73 @@ test('user cannot add a garden with invalid humidity', async () => {
     minHumidity: '80',
     maxHumidity: '20',
   });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
 
+  expect(within(dialog).getByLabelText(/Min humidity/)).toHaveProperty('value', '80');
+  expect(within(dialog).getByLabelText(/Max humidity/)).toHaveProperty('value', '20');
+  expect(within(dialog).getByRole('button', { name: 'Add garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(
+    within(dialog).getAllByText('Min humidity must be less than or equal to max humidity').length,
+  ).toBeGreaterThan(0);
   expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.queryByText('Backyard')).toBeNull();
+});
+
+test('user cannot add a garden with an out-of-range latitude', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    create: () => {
+      throw new Error('POST /gardens should not be called');
+    },
+  });
+
+  renderGardensPage();
+  await screen.findByText('Front yard');
+
+  const dialog = await openAddGardenModal();
+  fillGardenForm(dialog, {
+    gardenName: 'Backyard',
+    totalSurfaceArea: '20',
+    latitude: '91',
+    longitude: '4',
+  });
+
+  expect(within(dialog).getByLabelText(/Latitude/)).toHaveProperty('value', '91');
+  expect(within(dialog).getByRole('button', { name: 'Add garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(within(dialog).getByText('Latitude must be between -90 and 90')).toBeTruthy();
+  expect(screen.queryByText('Backyard')).toBeNull();
+});
+
+test('user cannot add a garden with humidity outside 0–100', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    create: () => {
+      throw new Error('POST /gardens should not be called');
+    },
+  });
+
+  renderGardensPage();
+  await screen.findByText('Front yard');
+
+  const dialog = await openAddGardenModal();
+  fillGardenForm(dialog, {
+    gardenName: 'Backyard',
+    totalSurfaceArea: '20',
+    minHumidity: '40',
+    maxHumidity: '150',
+  });
+
+  expect(within(dialog).getByLabelText(/Max humidity/)).toHaveProperty('value', '150');
+  expect(within(dialog).getByRole('button', { name: 'Add garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(within(dialog).getByText('Max humidity must be between 0 and 100')).toBeTruthy();
   expect(screen.queryByText('Backyard')).toBeNull();
 });
 
@@ -456,9 +523,37 @@ test('user cannot add a garden with incomplete humidity', async () => {
     totalSurfaceArea: '20',
     minHumidity: '40',
   });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Add garden' }));
 
+  expect(within(dialog).getByRole('button', { name: 'Add garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
   expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.queryByText('Backyard')).toBeNull();
+});
+
+test('user cannot add a garden with a surface area of 0', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    create: () => {
+      throw new Error('POST /gardens should not be called');
+    },
+  });
+
+  renderGardensPage();
+  await screen.findByText('Front yard');
+
+  const dialog = await openAddGardenModal();
+  fillGardenForm(dialog, {
+    gardenName: 'Backyard',
+    totalSurfaceArea: '0',
+  });
+
+  expect(within(dialog).getByRole('button', { name: 'Add garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(within(dialog).getByText('Total surface area must be greater than 0')).toBeTruthy();
   expect(screen.queryByText('Backyard')).toBeNull();
 });
 
@@ -917,8 +1012,11 @@ test('user cannot update a garden with incomplete details', async () => {
   fireEvent.change(within(dialog).getByLabelText(/Garden name/), {
     target: { value: '' },
   });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Update garden' }));
 
+  expect(within(dialog).getByRole('button', { name: 'Update garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
   expect(screen.getByRole('dialog')).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
 });
@@ -940,9 +1038,71 @@ test('user cannot update a garden with invalid humidity', async () => {
   fireEvent.change(within(dialog).getByLabelText(/Min humidity/), {
     target: { value: '90' },
   });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Update garden' }));
 
+  expect(within(dialog).getByLabelText(/Min humidity/)).toHaveProperty('value', '90');
+  expect(within(dialog).getByLabelText(/Max humidity/)).toHaveProperty('value', '60');
+  expect(within(dialog).getByRole('button', { name: 'Update garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(
+    within(dialog).getAllByText('Min humidity must be less than or equal to max humidity').length,
+  ).toBeGreaterThan(0);
   expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+});
+
+test('user cannot update a garden with an out-of-range latitude', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: () => {
+      throw new Error('PUT /gardens/:gardenId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Latitude/), {
+    target: { value: '91' },
+  });
+
+  expect(within(dialog).getByLabelText(/Latitude/)).toHaveProperty('value', '91');
+  expect(within(dialog).getByRole('button', { name: 'Update garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(within(dialog).getByText('Latitude must be between -90 and 90')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+});
+
+test('user cannot update a garden with humidity outside 0–100', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: () => {
+      throw new Error('PUT /gardens/:gardenId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Max humidity/), {
+    target: { value: '150' },
+  });
+
+  expect(within(dialog).getByLabelText(/Max humidity/)).toHaveProperty('value', '150');
+  expect(within(dialog).getByRole('button', { name: 'Update garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(within(dialog).getByText('Max humidity must be between 0 and 100')).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
 });
 
@@ -963,9 +1123,38 @@ test('user cannot update a garden with incomplete humidity', async () => {
   fireEvent.change(within(dialog).getByLabelText(/Max humidity/), {
     target: { value: '' },
   });
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Update garden' }));
 
+  expect(within(dialog).getByRole('button', { name: 'Update garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
   expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+});
+
+test('user cannot update a garden with a surface area of 0', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: () => {
+      throw new Error('PUT /gardens/:gardenId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Total surface area/), {
+    target: { value: '0' },
+  });
+
+  expect(within(dialog).getByRole('button', { name: 'Update garden' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(within(dialog).getByText('Total surface area must be greater than 0')).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
 });
 
@@ -1226,9 +1415,68 @@ test('user cannot add a plant with incomplete details', async () => {
   await screen.findByText('Tomato');
 
   const dialog = await openAddPlantModal();
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Add plant' }));
 
+  expect(within(dialog).getByRole('button', { name: 'Add plant' })).toHaveProperty('disabled', true);
   expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.queryByText('Basil')).toBeNull();
+});
+
+test('user cannot add a plant with a surface area of 0', async () => {
+  const plantationDateLocal = '2026-04-01T09:30';
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByText('Tomato');
+
+  const dialog = await openAddPlantModal();
+  fillPlantForm(dialog, {
+    plantName: 'Basil',
+    species: 'Ocimum basilicum',
+    plantType: 'vegetable',
+    plantationDate: plantationDateLocal,
+    surfaceAreaRequired: '0',
+    idealHumidityLevel: '55',
+  });
+
+  expect(within(dialog).getByRole('button', { name: 'Add plant' })).toHaveProperty('disabled', true);
+  expect(within(dialog).getByText('Surface area required must be greater than 0')).toBeTruthy();
+  expect(screen.queryByText('Basil')).toBeNull();
+});
+
+test('user cannot add a plant with humidity outside 0–100', async () => {
+  const plantationDateLocal = '2026-04-01T09:30';
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByText('Tomato');
+
+  const dialog = await openAddPlantModal();
+  fillPlantForm(dialog, {
+    plantName: 'Basil',
+    species: 'Ocimum basilicum',
+    plantType: 'vegetable',
+    plantationDate: plantationDateLocal,
+    surfaceAreaRequired: '1',
+    idealHumidityLevel: '150',
+  });
+
+  expect(within(dialog).getByLabelText(/Ideal humidity level \(%\)/)).toHaveProperty('value', '150');
+  expect(within(dialog).getByRole('button', { name: 'Add plant' })).toHaveProperty('disabled', true);
+  expect(within(dialog).getByText('Ideal humidity level must be between 0 and 100')).toBeTruthy();
   expect(screen.queryByText('Basil')).toBeNull();
 });
 
@@ -1419,9 +1667,76 @@ test('user cannot update a plant with incomplete details', async () => {
   fireEvent.change(within(updateDialog).getByLabelText(/Plant name/), {
     target: { value: '' },
   });
-  fireEvent.click(within(updateDialog).getByRole('button', { name: 'Update plant' }));
 
+  expect(within(updateDialog).getByRole('button', { name: 'Update plant' })).toHaveProperty(
+    'disabled',
+    true,
+  );
   expect(screen.getByRole('dialog', { name: 'Update plant' })).toBeTruthy();
+  expect(within(detail).getByRole('heading', { name: 'Tomato' })).toBeTruthy();
+});
+
+test('user cannot update a plant with a surface area of 0', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+    updatePlant: () => {
+      throw new Error('PUT /plants/:plantId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Update plant' }));
+
+  const updateDialog = await screen.findByRole('dialog', { name: 'Update plant' });
+  fireEvent.change(within(updateDialog).getByLabelText(/Surface area required \(m²\)/), {
+    target: { value: '0' },
+  });
+
+  expect(within(updateDialog).getByRole('button', { name: 'Update plant' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(within(updateDialog).getByText('Surface area required must be greater than 0')).toBeTruthy();
+  expect(within(detail).getByRole('heading', { name: 'Tomato' })).toBeTruthy();
+});
+
+test('user cannot update a plant with humidity outside 0–100', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    createPlant: () => {
+      throw new Error('POST /plants should not be called');
+    },
+    updatePlant: () => {
+      throw new Error('PUT /plants/:plantId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  const detail = await openPlantDetails();
+  fireEvent.click(within(detail).getByRole('button', { name: 'Update plant' }));
+
+  const updateDialog = await screen.findByRole('dialog', { name: 'Update plant' });
+  fireEvent.change(within(updateDialog).getByLabelText(/Ideal humidity level \(%\)/), {
+    target: { value: '150' },
+  });
+
+  expect(within(updateDialog).getByLabelText(/Ideal humidity level \(%\)/)).toHaveProperty(
+    'value',
+    '150',
+  );
+  expect(within(updateDialog).getByRole('button', { name: 'Update plant' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(
+    within(updateDialog).getByText('Ideal humidity level must be between 0 and 100'),
+  ).toBeTruthy();
   expect(within(detail).getByRole('heading', { name: 'Tomato' })).toBeTruthy();
 });
 

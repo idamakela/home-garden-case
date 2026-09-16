@@ -55,6 +55,18 @@ function emptyToOptionalNumber(value: string | number): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function liveNumberError(
+  value: string | number,
+  schemaError: string | undefined,
+  submitError: string | undefined,
+) {
+  if (emptyToOptionalNumber(value) === null) {
+    return submitError;
+  }
+
+  return schemaError ?? submitError;
+}
+
 function toCreateGardenInput(values: GardenFormValues) {
   const totalSurfaceArea = emptyToOptionalNumber(values.totalSurfaceArea);
   const locationDescription =
@@ -128,6 +140,30 @@ export function AddGardenModal({
 }: AddGardenModalProps) {
   const [values, setValues] = useState<GardenFormValues>(emptyValues);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const parsed = createGardenSchema.safeParse(toCreateGardenInput(values));
+  const canSubmit = parsed.success;
+  const schemaErrors = parsed.success ? {} : fieldErrorsFromZod(parsed.error);
+  const totalSurfaceAreaValue = emptyToOptionalNumber(values.totalSurfaceArea);
+  const totalSurfaceAreaError =
+    totalSurfaceAreaValue === 0
+      ? 'Total surface area must be greater than 0'
+      : errors.totalSurfaceArea;
+  const latitudeError = liveNumberError(values.latitude, schemaErrors.latitude, errors.latitude);
+  const longitudeError = liveNumberError(
+    values.longitude,
+    schemaErrors.longitude,
+    errors.longitude,
+  );
+  const minHumidityError = liveNumberError(
+    values.minHumidity,
+    schemaErrors.minHumidity,
+    errors.minHumidity,
+  );
+  const maxHumidityError = liveNumberError(
+    values.maxHumidity,
+    schemaErrors.maxHumidity,
+    errors.maxHumidity,
+  );
   const hasLatitude = emptyToOptionalNumber(values.latitude) !== null;
   const hasLongitude = emptyToOptionalNumber(values.longitude) !== null;
   const hasMinHumidity = emptyToOptionalNumber(values.minHumidity) !== null;
@@ -176,10 +212,12 @@ export function AddGardenModal({
             min={0}
             hideControls
             value={values.totalSurfaceArea}
-            error={errors.totalSurfaceArea}
+            error={totalSurfaceAreaError}
             onChange={(totalSurfaceArea) => {
               setValues((current) => ({ ...current, totalSurfaceArea }));
-              setErrors((current) => ({ ...current, totalSurfaceArea: undefined }));
+              if (emptyToOptionalNumber(totalSurfaceArea) !== 0) {
+                setErrors((current) => ({ ...current, totalSurfaceArea: undefined }));
+              }
             }}
           />
           <Textarea
@@ -198,11 +236,10 @@ export function AddGardenModal({
             <NumberInput
               label="Latitude"
               withAsterisk={hasLongitude}
-              min={-90}
-              max={90}
+              clampBehavior="none"
               hideControls
               value={values.latitude}
-              error={errors.latitude}
+              error={latitudeError}
               onChange={(latitude) => {
                 setValues((current) => ({ ...current, latitude }));
                 setErrors((current) => ({ ...current, latitude: undefined }));
@@ -211,11 +248,10 @@ export function AddGardenModal({
             <NumberInput
               label="Longitude"
               withAsterisk={hasLatitude}
-              min={-180}
-              max={180}
+              clampBehavior="none"
               hideControls
               value={values.longitude}
-              error={errors.longitude}
+              error={longitudeError}
               onChange={(longitude) => {
                 setValues((current) => ({ ...current, longitude }));
                 setErrors((current) => ({ ...current, longitude: undefined }));
@@ -226,11 +262,10 @@ export function AddGardenModal({
             <NumberInput
               label="Min humidity (%)"
               withAsterisk={hasMaxHumidity}
-              min={0}
-              max={100}
+              clampBehavior="none"
               hideControls
               value={values.minHumidity}
-              error={errors.minHumidity}
+              error={minHumidityError}
               onChange={(minHumidity) => {
                 setValues((current) => ({ ...current, minHumidity }));
                 setErrors((current) => ({ ...current, minHumidity: undefined }));
@@ -239,11 +274,10 @@ export function AddGardenModal({
             <NumberInput
               label="Max humidity (%)"
               withAsterisk={hasMinHumidity}
-              min={0}
-              max={100}
+              clampBehavior="none"
               hideControls
               value={values.maxHumidity}
-              error={errors.maxHumidity}
+              error={maxHumidityError}
               onChange={(maxHumidity) => {
                 setValues((current) => ({ ...current, maxHumidity }));
                 setErrors((current) => ({ ...current, maxHumidity: undefined }));
@@ -254,7 +288,9 @@ export function AddGardenModal({
             <Button type="button" variant="default" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">{submitLabel}</Button>
+            <Button type="submit" disabled={!canSubmit}>
+              {submitLabel}
+            </Button>
           </ModalActions>
         </Stack>
       </form>

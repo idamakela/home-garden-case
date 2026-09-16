@@ -10,7 +10,7 @@ export const createPlantSchema = z.object({
     message: 'Plant type must be vegetable, fruit, or flower',
   }),
   plantationDate: z.iso.datetime({ message: 'Plantation date is required' }),
-  surfaceAreaRequired: z.number().nonnegative('Surface area required must be a non-negative number'),
+  surfaceAreaRequired: z.number().positive('Surface area required must be greater than 0'),
   idealHumidityLevel: z
     .number()
     .min(0, 'Ideal humidity level must be between 0 and 100')

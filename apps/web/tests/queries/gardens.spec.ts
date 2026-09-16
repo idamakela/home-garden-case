@@ -36,6 +36,14 @@ test('createGardenSchema rejects a negative surface area', () => {
   expect(result.success).toBe(false);
 });
 
+test('createGardenSchema rejects a surface area of 0', () => {
+  const result = createGardenSchema.safeParse({
+    ...validGarden,
+    totalSurfaceArea: 0,
+  });
+  expect(result.success).toBe(false);
+});
+
 test('createGardenSchema requires latitude and longitude together', () => {
   expect(
     createGardenSchema.safeParse({

@@ -67,6 +67,14 @@ test('createPlantSchema rejects a negative surface area', () => {
   expect(result.success).toBe(false);
 });
 
+test('createPlantSchema rejects a surface area of 0', () => {
+  const result = createPlantSchema.safeParse({
+    ...validCreatePlant,
+    surfaceAreaRequired: 0,
+  });
+  expect(result.success).toBe(false);
+});
+
 test('createPlantSchema rejects humidity outside 0–100', () => {
   expect(
     createPlantSchema.safeParse({

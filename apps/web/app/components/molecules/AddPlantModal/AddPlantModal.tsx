@@ -80,6 +80,18 @@ function emptyToOptionalNumber(value: string | number): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function liveNumberError(
+  value: string | number,
+  schemaError: string | undefined,
+  submitError: string | undefined,
+) {
+  if (emptyToOptionalNumber(value) === null) {
+    return submitError;
+  }
+
+  return schemaError ?? submitError;
+}
+
 function plantationDateToIso(value: string): string | undefined {
   if (value.trim() === '') {
     return undefined;
@@ -177,6 +189,19 @@ export function AddPlantModal({
 }: AddPlantModalProps) {
   const [values, setValues] = useState<PlantFormValues>(emptyFormValues);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const parsed = createPlantSchema.safeParse(toCreatePlantInput(values, gardenId));
+  const canSubmit = parsed.success;
+  const schemaErrors = parsed.success ? {} : fieldErrorsFromZod(parsed.error);
+  const surfaceAreaRequiredValue = emptyToOptionalNumber(values.surfaceAreaRequired);
+  const surfaceAreaRequiredError =
+    surfaceAreaRequiredValue === 0
+      ? 'Surface area required must be greater than 0'
+      : errors.surfaceAreaRequired;
+  const idealHumidityLevelError = liveNumberError(
+    values.idealHumidityLevel,
+    schemaErrors.idealHumidityLevel,
+    errors.idealHumidityLevel,
+  );
 
   useEffect(() => {
     if (!opened) {
@@ -266,20 +291,21 @@ export function AddPlantModal({
               min={0}
               hideControls
               value={values.surfaceAreaRequired}
-              error={errors.surfaceAreaRequired}
+              error={surfaceAreaRequiredError}
               onChange={(surfaceAreaRequired) => {
                 setValues((current) => ({ ...current, surfaceAreaRequired }));
-                setErrors((current) => ({ ...current, surfaceAreaRequired: undefined }));
+                if (emptyToOptionalNumber(surfaceAreaRequired) !== 0) {
+                  setErrors((current) => ({ ...current, surfaceAreaRequired: undefined }));
+                }
               }}
             />
             <NumberInput
               label="Ideal humidity level (%)"
               withAsterisk
-              min={0}
-              max={100}
+              clampBehavior="none"
               hideControls
               value={values.idealHumidityLevel}
-              error={errors.idealHumidityLevel}
+              error={idealHumidityLevelError}
               onChange={(idealHumidityLevel) => {
                 setValues((current) => ({ ...current, idealHumidityLevel }));
                 setErrors((current) => ({ ...current, idealHumidityLevel: undefined }));
@@ -290,7 +316,9 @@ export function AddPlantModal({
             <Button type="button" variant="default" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">{submitLabel}</Button>
+            <Button type="submit" disabled={!canSubmit}>
+              {submitLabel}
+            </Button>
           </ModalActions>
         </Stack>
       </form>

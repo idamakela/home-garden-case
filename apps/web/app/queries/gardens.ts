@@ -6,7 +6,7 @@ import { gardenQueryKeys } from './gardens.const';
 export const createGardenSchema = z
   .object({
     gardenName: z.string().min(1, 'Garden name is required').trim(),
-    totalSurfaceArea: z.number().nonnegative('Total surface area must be a non-negative number'),
+    totalSurfaceArea: z.number().positive('Total surface area must be greater than 0'),
     locationDescription: z.string().nullable().optional(),
     latitude: z
       .number()
