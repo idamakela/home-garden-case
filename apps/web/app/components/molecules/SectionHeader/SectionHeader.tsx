@@ -9,7 +9,7 @@ type SectionHeaderProps = {
 
 export function SectionHeader({ title, children }: SectionHeaderProps) {
   return (
-    <Group justify="space-between" align="center" wrap="nowrap" preventGrowOverflow={false}>
+    <Group justify="space-between" align="center" preventGrowOverflow={false}>
       <Title order={1} className={styles.title}>
         {title}
       </Title>

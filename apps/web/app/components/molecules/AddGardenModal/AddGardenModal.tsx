@@ -32,6 +32,8 @@ type AddGardenModalProps = {
   onClose: () => void;
   onSubmit: (body: CreateGarden) => void;
   initialValues?: CreateGarden | null;
+  title?: string;
+  submitLabel?: string;
 };
 
 function emptyToOptionalNumber(value: string | number): number | null {
@@ -103,6 +105,8 @@ export function AddGardenModal({
   onClose,
   onSubmit,
   initialValues = null,
+  title = 'Add garden',
+  submitLabel = 'Add garden',
 }: AddGardenModalProps) {
   const [values, setValues] = useState<GardenFormValues>(emptyValues);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -132,7 +136,7 @@ export function AddGardenModal({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Add garden">
+    <Modal opened={opened} onClose={onClose} title={title}>
       <form onSubmit={submit}>
         <Stack>
           <TextInput
@@ -202,7 +206,7 @@ export function AddGardenModal({
             <Button type="button" variant="default" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">Add garden</Button>
+            <Button type="submit">{submitLabel}</Button>
           </ModalActions>
         </Stack>
       </form>

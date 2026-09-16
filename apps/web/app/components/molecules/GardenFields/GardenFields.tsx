@@ -9,6 +9,7 @@ type GardenFieldsProps = {
   longitude: string;
   created: string;
   updated: string;
+  pending?: boolean;
 };
 
 export function GardenFields({
@@ -19,6 +20,7 @@ export function GardenFields({
   longitude,
   created,
   updated,
+  pending = false,
 }: GardenFieldsProps) {
   return (
     <Paper
@@ -27,7 +29,8 @@ export function GardenFields({
       p="md"
       withBorder
       bg="var(--mantine-color-white)"
-      className={styles.root}
+      className={pending ? `${styles.root} ${styles.pending}` : styles.root}
+      aria-busy={pending || undefined}
     >
       <DataList orientation="vertical" size="sm" gap="md" className={styles.list}>
         <DataList.Item>

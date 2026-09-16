@@ -14,6 +14,7 @@ import {
   gardensQuery,
   INCOMING_GARDEN_HIGHLIGHT_MS,
   postGarden,
+  upsertGardenInList,
   type CreateGarden,
   type Garden,
 } from '../queries/gardens';
@@ -85,11 +86,14 @@ export default function GardensIndexPage() {
   const { incomingIds, acknowledge } = useIncomingGardenIds(data);
   const createGarden = useMutation({
     mutationFn: ({ body }: PendingAddition) => postGarden(body),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: gardenKeys.list() });
+    },
     onSuccess: (garden, { clientId }) => {
       acknowledge(garden.gardenId);
       setPendingAdditions((current) => dropPending(current, clientId));
       queryClient.setQueryData<Garden[]>(gardenKeys.list(), (current) =>
-        current ? [...current, garden] : [garden],
+        upsertGardenInList(current, garden),
       );
     },
     onError: (mutationError, { clientId, body }) => {

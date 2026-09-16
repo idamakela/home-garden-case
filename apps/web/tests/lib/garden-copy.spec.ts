@@ -1,5 +1,5 @@
 import { ApiError } from '../../app/lib/api';
-import { gardensCreateCopy, gardensLoadCopy } from '../../app/lib/garden-copy';
+import { gardensCreateCopy, gardensLoadCopy, gardensUpdateCopy } from '../../app/lib/garden-copy';
 
 test('gardensLoadCopy maps 404', () => {
   expect(gardensLoadCopy(new ApiError(404, 'missing'))).toEqual({
@@ -46,6 +46,27 @@ test('gardensCreateCopy maps 409', () => {
 test('gardensCreateCopy maps 500', () => {
   expect(gardensCreateCopy(new ApiError(500, 'boom'))).toEqual({
     title: "Couldn't add this garden",
+    message: 'The service is temporarily unavailable. Try again.',
+  });
+});
+
+test('gardensUpdateCopy maps 400', () => {
+  expect(gardensUpdateCopy(new ApiError(400, 'invalid'))).toEqual({
+    title: "Couldn't update this garden",
+    message: 'Check the details and try again.',
+  });
+});
+
+test('gardensUpdateCopy maps 409', () => {
+  expect(gardensUpdateCopy(new ApiError(409, 'conflict'))).toEqual({
+    title: "Couldn't update this garden",
+    message: 'This conflicts with current data. Try again.',
+  });
+});
+
+test('gardensUpdateCopy maps 500', () => {
+  expect(gardensUpdateCopy(new ApiError(500, 'boom'))).toEqual({
+    title: "Couldn't update this garden",
     message: 'The service is temporarily unavailable. Try again.',
   });
 });

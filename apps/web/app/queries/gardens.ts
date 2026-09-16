@@ -53,6 +53,20 @@ export const gardenKeys = {
   detail: (gardenId: number) => [...gardenKeys.details(), gardenId] as const,
 };
 
+export function upsertGardenInList(current: Garden[] | undefined, garden: Garden): Garden[] {
+  if (!current || current.length === 0) {
+    return [garden];
+  }
+
+  const exists = current.some((item) => item.gardenId === garden.gardenId);
+
+  if (!exists) {
+    return [...current, garden];
+  }
+
+  return current.map((item) => (item.gardenId === garden.gardenId ? garden : item));
+}
+
 export function getGardens() {
   return api<Garden[]>('/gardens');
 }

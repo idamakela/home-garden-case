@@ -1,7 +1,6 @@
-import { Title } from '@mantine/core';
 import type { ReactNode } from 'react';
 import { GardenFields } from '../../molecules/GardenFields/GardenFields';
-import styles from './GardenDetail.module.css';
+import { SectionHeader } from '../../molecules/SectionHeader/SectionHeader';
 
 type GardenDetailProps = {
   gardenName: string;
@@ -12,6 +11,8 @@ type GardenDetailProps = {
   longitude: string;
   created: string;
   updated: string;
+  pending?: boolean;
+  actions?: ReactNode;
   plants: ReactNode;
 };
 
@@ -24,13 +25,13 @@ export function GardenDetail({
   longitude,
   created,
   updated,
+  pending = false,
+  actions,
   plants,
 }: GardenDetailProps) {
   return (
     <>
-      <Title order={1} className={styles.title}>
-        {gardenName}
-      </Title>
+      <SectionHeader title={gardenName}>{actions}</SectionHeader>
       <GardenFields
         gardenId={gardenId}
         totalSurfaceArea={totalSurfaceArea}
@@ -39,6 +40,7 @@ export function GardenDetail({
         longitude={longitude}
         created={created}
         updated={updated}
+        pending={pending}
       />
       {plants}
     </>

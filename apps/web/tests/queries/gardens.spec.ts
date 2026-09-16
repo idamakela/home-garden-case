@@ -1,4 +1,4 @@
-import { createGardenSchema } from '../../app/queries/gardens';
+import { createGardenSchema, upsertGardenInList, type Garden } from '../../app/queries/gardens';
 
 const validGarden = {
   gardenName: 'Backyard',
@@ -68,4 +68,41 @@ test('createGardenSchema rejects out-of-range coordinates', () => {
       longitude: 181,
     }).success,
   ).toBe(false);
+});
+
+const frontYard: Garden = {
+  gardenId: 1,
+  gardenName: 'Front yard',
+  totalSurfaceArea: 12,
+  locationDescription: null,
+  latitude: null,
+  longitude: null,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
+const backyard: Garden = {
+  gardenId: 2,
+  gardenName: 'Backyard',
+  totalSurfaceArea: 20,
+  locationDescription: null,
+  latitude: null,
+  longitude: null,
+  createdAt: '2026-01-02T00:00:00.000Z',
+  updatedAt: '2026-01-02T00:00:00.000Z',
+};
+
+test('upsertGardenInList appends a garden that is not in the list', () => {
+  expect(upsertGardenInList([frontYard], backyard)).toEqual([frontYard, backyard]);
+});
+
+test('upsertGardenInList replaces a garden with the same id', () => {
+  const renamed = { ...frontYard, gardenName: 'Side yard' };
+
+  expect(upsertGardenInList([frontYard, backyard], renamed)).toEqual([renamed, backyard]);
+});
+
+test('upsertGardenInList uses the garden when the cache is empty', () => {
+  expect(upsertGardenInList(undefined, backyard)).toEqual([backyard]);
+  expect(upsertGardenInList([], backyard)).toEqual([backyard]);
 });

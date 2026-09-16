@@ -20,3 +20,8 @@
 .full {
   grid-column: 1 / -1;
 }
+
+.pending {
+  opacity: 0.6;
+  pointer-events: none;
+}

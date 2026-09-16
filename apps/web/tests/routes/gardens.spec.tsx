@@ -7,6 +7,7 @@ import {
   INCOMING_GARDEN_HIGHLIGHT_MS,
   type CreateGarden,
   type Garden,
+  type UpdateGarden,
 } from '../../app/queries/gardens';
 import type { Plant } from '../../app/queries/plants';
 import GardenDetailPage from '../../app/routes/garden-detail';
@@ -51,6 +52,7 @@ const plant: Plant = {
 function stubGardensApi(handlers: {
   list: () => Promise<Response> | Response;
   create?: (body: CreateGarden) => Promise<Response> | Response;
+  update?: (gardenId: number, body: UpdateGarden) => Promise<Response> | Response;
   plantsByGarden?: (gardenId: number) => Promise<Response> | Response;
 }) {
   vi.stubGlobal(
@@ -59,6 +61,7 @@ function stubGardensApi(handlers: {
       const url = String(input);
       const method = (init?.method ?? 'GET').toUpperCase();
       const plantsMatch = url.match(/\/plants\/garden\/(\d+)$/);
+      const gardenMatch = url.match(/\/gardens\/(\d+)$/);
 
       if (plantsMatch && method === 'GET') {
         return (
@@ -71,6 +74,14 @@ function stubGardensApi(handlers: {
         const body = init?.body ? (JSON.parse(String(init.body)) as CreateGarden) : undefined;
         return (
           handlers.create?.(body as CreateGarden) ?? new Response('Not found', { status: 404 })
+        );
+      }
+
+      if (gardenMatch && method === 'PUT') {
+        const body = init?.body ? (JSON.parse(String(init.body)) as UpdateGarden) : undefined;
+        return (
+          handlers.update?.(Number(gardenMatch[1]), body as UpdateGarden) ??
+          new Response('Not found', { status: 404 })
         );
       }
 
@@ -654,4 +665,106 @@ test('user can see garden details and plants from the first HTML', async () => {
 
   expect(await screen.findByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
   expect(await screen.findByText('Tomato')).toBeTruthy();
+});
+
+test('user can update a garden', async () => {
+  const updated: Garden = {
+    ...garden,
+    gardenName: 'Backyard',
+    updatedAt: '2026-01-03T00:00:00.000Z',
+  };
+  const updateRequest = deferred<Response>();
+
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: (gardenId, body) => {
+      expect(gardenId).toBe(1);
+      expect(body).toEqual({
+        gardenName: 'Backyard',
+        totalSurfaceArea: 12,
+        locationDescription: null,
+        latitude: 52.37,
+        longitude: 4.89,
+      });
+      return updateRequest.promise;
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Garden name/), {
+    target: { value: 'Backyard' },
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Update garden' }));
+
+  expect(await screen.findByRole('heading', { name: 'Backyard', level: 1 })).toBeTruthy();
+  expect(screen.queryByRole('dialog')).toBeNull();
+
+  updateRequest.resolve(jsonResponse(updated));
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Backyard', level: 1 })).toBeTruthy();
+  });
+
+  fireEvent.click(screen.getByRole('link', { name: 'back' }));
+  expect(await screen.findByRole('link', { name: 'Backyard' })).toBeTruthy();
+});
+
+test('user cannot update a garden with incomplete details', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: () => {
+      throw new Error('PUT /gardens/:gardenId should not be called');
+    },
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Garden name/), {
+    target: { value: '' },
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Update garden' }));
+
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+});
+
+test('user is told why a garden was not updated and can restore the form', async () => {
+  stubGardensApi({
+    list: () => jsonResponse([garden]),
+    plantsByGarden: () => jsonResponse([plant]),
+    update: () => new Response('Internal error JSON {"message":"boom"}', { status: 500 }),
+  });
+
+  renderGardensPage('/gardens/1');
+  await screen.findByRole('heading', { name: 'Front yard', level: 1 });
+
+  fireEvent.click(screen.getByRole('button', { name: 'Update garden' }));
+  const dialog = await screen.findByRole('dialog');
+  fireEvent.change(within(dialog).getByLabelText(/Garden name/), {
+    target: { value: 'Backyard' },
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Update garden' }));
+
+  expect(await screen.findByText("Couldn't update this garden")).toBeTruthy();
+  expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
+  expect(screen.queryByText(/boom/)).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Front yard', level: 1 })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: /Couldn't update this garden/ }));
+
+  const restored = await screen.findByRole('dialog');
+  expect(within(restored).getByLabelText(/Garden name/)).toHaveProperty('value', 'Backyard');
+  expect(within(restored).getByLabelText(/Total surface area/)).toHaveProperty('value', '12');
+  expect(within(restored).getByLabelText(/Location description/)).toHaveProperty('value', '');
+  expect(within(restored).getByLabelText(/Latitude/)).toHaveProperty('value', '52.37');
+  expect(within(restored).getByLabelText(/Longitude/)).toHaveProperty('value', '4.89');
 });
