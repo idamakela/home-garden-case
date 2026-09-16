@@ -46,11 +46,14 @@ export function renderWithProviders(ui: ReactElement) {
 export function renderWithQuery(ui: ReactElement) {
   const queryClient = createTestQueryClient();
 
-  return render(ui, {
-    wrapper: ({ children }: { children: ReactNode }) => (
-      <MantineTestProvider>
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-      </MantineTestProvider>
-    ),
-  });
+  return {
+    ...render(ui, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <MantineTestProvider>
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        </MantineTestProvider>
+      ),
+    }),
+    queryClient,
+  };
 }

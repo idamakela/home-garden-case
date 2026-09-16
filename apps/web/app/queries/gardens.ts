@@ -79,10 +79,15 @@ export function deleteGarden(gardenId: number) {
   return api<void>(`/gardens/${gardenId}`, { method: 'DELETE' });
 }
 
+export const GARDENS_REFETCH_INTERVAL_MS = 15_000;
+export const INCOMING_GARDEN_HIGHLIGHT_MS = 2_000;
+
 export const gardensQuery = () =>
   queryOptions({
     queryKey: gardenKeys.list(),
     queryFn: getGardens,
+    refetchInterval: import.meta.env.MODE === 'test' ? false : GARDENS_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
 
 export const gardenQuery = (gardenId: number) =>

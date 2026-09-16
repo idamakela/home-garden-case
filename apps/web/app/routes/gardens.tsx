@@ -1,22 +1,34 @@
 import { Button, Notification, UnstyledButton } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import {
+  HydrationBoundary,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type DehydratedState,
+} from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { AddGardenModal } from '../components/molecules/AddGardenModal/AddGardenModal';
 import { ErrorAlert } from '../components/molecules/ErrorAlert/ErrorAlert';
 import { SectionHeader } from '../components/molecules/SectionHeader/SectionHeader';
 import { GardenList } from '../components/organisms/GardenList/GardenList';
 import { GardenListSkeleton } from '../components/organisms/GardenList/GardenListSkeleton';
 import { AppShell } from '../components/templates/AppShell/AppShell';
-import { ApiError } from '../lib/api';
+import { getErrorStatus } from '../lib/api';
+import { dehydrateQueryState, makeQueryClient } from '../lib/query-client';
 import {
   gardenKeys,
   gardensQuery,
+  INCOMING_GARDEN_HIGHLIGHT_MS,
   postGarden,
   type CreateGarden,
   type Garden,
 } from '../queries/gardens';
+
+type GardensLoaderData = {
+  dehydratedState: DehydratedState;
+};
 
 type PendingAddition = {
   clientId: string;
@@ -24,7 +36,7 @@ type PendingAddition = {
 };
 
 function gardensLoadCopy(error: unknown): { title: string; message: string } {
-  const status = error instanceof ApiError ? error.status : undefined;
+  const status = getErrorStatus(error);
 
   if (status === 404) {
     return {
@@ -54,7 +66,7 @@ function gardensLoadCopy(error: unknown): { title: string; message: string } {
 }
 
 function gardensCreateCopy(error: unknown): { title: string; message: string } {
-  const status = error instanceof ApiError ? error.status : undefined;
+  const status = getErrorStatus(error);
 
   if (status === 400) {
     return {
@@ -87,11 +99,75 @@ function dropPending(pendingAdditions: PendingAddition[], clientId: string) {
   return pendingAdditions.filter((item) => item.clientId !== clientId);
 }
 
-export default function GardensPage() {
+function useIncomingGardenIds(gardens: Garden[] | undefined) {
+  const acknowledgedIds = useRef(new Set<number>());
+  const hasSeenList = useRef(false);
+  const [incomingIds, setIncomingIds] = useState(() => new Set<number>());
+
+  useEffect(() => {
+    if (!gardens) {
+      return;
+    }
+
+    if (!hasSeenList.current) {
+      gardens.forEach((garden) => acknowledgedIds.current.add(garden.gardenId));
+      hasSeenList.current = true;
+      return;
+    }
+
+    const newIds = gardens
+      .filter((garden) => !acknowledgedIds.current.has(garden.gardenId))
+      .map((garden) => garden.gardenId);
+
+    if (newIds.length === 0) {
+      return;
+    }
+
+    setIncomingIds((current) => {
+      const next = new Set(current);
+      newIds.forEach((id) => next.add(id));
+      return next;
+    });
+
+    const timeout = window.setTimeout(() => {
+      newIds.forEach((id) => acknowledgedIds.current.add(id));
+      setIncomingIds((current) => {
+        const next = new Set(current);
+        newIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    }, INCOMING_GARDEN_HIGHLIGHT_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [gardens]);
+
+  function acknowledge(gardenId: number) {
+    acknowledgedIds.current.add(gardenId);
+  }
+
+  return { incomingIds, acknowledge };
+}
+
+export async function loader(): Promise<GardensLoaderData> {
+  const queryClient = makeQueryClient({ retry: false });
+  try {
+    await queryClient.fetchQuery(gardensQuery());
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+  }
+
+  return { dehydratedState: dehydrateQueryState(queryClient) };
+}
+
+export default function GardensPage({ loaderData }: { loaderData?: GardensLoaderData }) {
   return (
-    <AppShell>
-      <GardensPanel />
-    </AppShell>
+    <HydrationBoundary state={loaderData?.dehydratedState}>
+      <AppShell>
+        <GardensPanel />
+      </AppShell>
+    </HydrationBoundary>
   );
 }
 
@@ -101,9 +177,11 @@ function GardensPanel() {
   const [pendingAdditions, setPendingAdditions] = useState<PendingAddition[]>([]);
   const [restoreValues, setRestoreValues] = useState<CreateGarden | null>(null);
   const { data, isPending, isError, error, refetch } = useQuery(gardensQuery());
+  const { incomingIds, acknowledge } = useIncomingGardenIds(data);
   const createGarden = useMutation({
     mutationFn: ({ body }: PendingAddition) => postGarden(body),
     onSuccess: (garden, { clientId }) => {
+      acknowledge(garden.gardenId);
       setPendingAdditions((current) => dropPending(current, clientId));
       queryClient.setQueryData<Garden[]>(gardenKeys.list(), (current) =>
         current ? [...current, garden] : [garden],
@@ -165,6 +243,7 @@ function GardensPanel() {
       totalSurfaceArea: garden.totalSurfaceArea,
       latitude: garden.latitude,
       longitude: garden.longitude,
+      pending: incomingIds.has(garden.gardenId),
     })),
     ...pendingAdditions.map((pending) => ({
       id: `pending-${pending.clientId}`,
@@ -180,7 +259,7 @@ function GardensPanel() {
 
   if (isPending) {
     content = <GardenListSkeleton />;
-  } else if (isError) {
+  } else if (isError && !data) {
     const copy = gardensLoadCopy(error);
     content = <ErrorAlert error={copy.title} details={copy.message} onRetry={() => refetch()} />;
   } else {

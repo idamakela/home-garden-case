@@ -1,9 +1,14 @@
 import { notifications } from '@mantine/notifications';
 import { createRoutesStub } from 'react-router';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
-import type { CreateGarden, Garden } from '../../app/queries/gardens';
-import GardensPage from '../../app/routes/gardens';
+import {
+  gardenKeys,
+  INCOMING_GARDEN_HIGHLIGHT_MS,
+  type CreateGarden,
+  type Garden,
+} from '../../app/queries/gardens';
+import GardensPage, { loader as gardensLoader } from '../../app/routes/gardens';
 import { renderWithQuery } from '../render-with-query';
 
 const garden: Garden = {
@@ -55,6 +60,18 @@ function renderGardensPage() {
     {
       path: '/gardens',
       Component: GardensPage,
+    },
+  ]);
+
+  return renderWithQuery(<ReactRouterStub initialEntries={['/gardens']} />);
+}
+
+function renderGardensPageWithLoader() {
+  const ReactRouterStub = createRoutesStub([
+    {
+      path: '/gardens',
+      Component: GardensPage,
+      loader: gardensLoader,
     },
   ]);
 
@@ -409,4 +426,123 @@ test('clears only the pending garden that succeeded', async () => {
   });
   expect(gardenRow('Patio').getAttribute('aria-busy')).toBe('true');
   expect(screen.getAllByRole('cell', { name: 'Backyard' })).toHaveLength(1);
+});
+
+test('renders gardens from the loader without a skeleton', async () => {
+  stubGardensApi({ list: () => jsonResponse([garden]) });
+
+  renderGardensPageWithLoader();
+
+  expect(await screen.findByRole('columnheader', { name: 'Garden name' })).toBeTruthy();
+  expectGardensHeader();
+  expect(screen.queryByLabelText('Loading gardens')).toBeNull();
+  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+});
+
+test('renders the empty message from the loader without a skeleton', async () => {
+  stubGardensApi({ list: () => jsonResponse([]) });
+
+  renderGardensPageWithLoader();
+
+  expect(await screen.findByText('No gardens yet. Add one to get started.')).toBeTruthy();
+  expectGardensHeader();
+  expect(screen.queryByLabelText('Loading gardens')).toBeNull();
+  expect(screen.queryByRole('columnheader', { name: 'Garden name' })).toBeNull();
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+
+test('renders a dehydrated load error without a skeleton and retries', async () => {
+  let failList = true;
+
+  stubGardensApi({
+    list: () => {
+      if (failList) {
+        return new Response('Internal error JSON {"message":"boom"}', { status: 500 });
+      }
+
+      return jsonResponse([garden]);
+    },
+  });
+
+  renderGardensPageWithLoader();
+
+  expect(await screen.findByRole('alert')).toBeTruthy();
+  expectGardensHeader();
+  expect(screen.queryByLabelText('Loading gardens')).toBeNull();
+  expect(screen.getByText("Couldn't load gardens")).toBeTruthy();
+  expect(screen.getByText('The service is temporarily unavailable. Try again.')).toBeTruthy();
+  expect(screen.queryByText(/Internal error/)).toBeNull();
+  expect(screen.queryByText(/boom/)).toBeNull();
+
+  failList = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+  await waitFor(() => screen.findByRole('columnheader', { name: 'Garden name' }));
+  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+});
+
+test('keeps the garden list when a refetch fails', async () => {
+  let failList = false;
+
+  stubGardensApi({
+    list: () => {
+      if (failList) {
+        return new Response('Internal error JSON {"message":"boom"}', { status: 500 });
+      }
+
+      return jsonResponse([garden]);
+    },
+  });
+
+  const { queryClient } = renderGardensPage();
+
+  await screen.findByRole('columnheader', { name: 'Garden name' });
+  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+
+  failList = true;
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+  });
+
+  expectGardensHeader();
+  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.queryByText(/boom/)).toBeNull();
+});
+
+test('shows a remotely added garden as pending then settles', async () => {
+  const patio: Garden = {
+    gardenId: 2,
+    gardenName: 'Patio',
+    totalSurfaceArea: 8,
+    locationDescription: null,
+    latitude: null,
+    longitude: null,
+    createdAt: '2026-01-02T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+  };
+  let gardens: Garden[] = [garden];
+
+  stubGardensApi({ list: () => jsonResponse(gardens) });
+
+  const { queryClient } = renderGardensPage();
+
+  await screen.findByRole('columnheader', { name: 'Garden name' });
+  expect(screen.getByRole('cell', { name: 'Front yard' })).toBeTruthy();
+
+  gardens = [garden, patio];
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: gardenKeys.list() });
+  });
+
+  expect(await screen.findByRole('cell', { name: 'Patio' })).toBeTruthy();
+  expect(gardenRow('Patio').getAttribute('aria-busy')).toBe('true');
+  expect(gardenRow('Front yard').getAttribute('aria-busy')).toBeNull();
+
+  await waitFor(
+    () => {
+      expect(gardenRow('Patio').getAttribute('aria-busy')).toBeNull();
+    },
+    { timeout: INCOMING_GARDEN_HIGHLIGHT_MS + 500 },
+  );
 });
